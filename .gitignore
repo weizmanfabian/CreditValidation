@@ -22,3 +22,44 @@
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
 replay_pid*
+
+# ---------------------------------------------------------------------------
+# Arnés de trabajo (no forma parte de la entrega)
+# ---------------------------------------------------------------------------
+.claude/
+.harness/
+tools/
+docs/
+progress/
+AGENTS.md
+CLAUDE.md
+CHECKPOINTS.md
+feature_list.json
+init.sh
+
+# ---------------------------------------------------------------------------
+# Artefactos de compilación
+# ---------------------------------------------------------------------------
+target/
+build/
+node_modules/
+dist/
+.angular/
+coverage/
+
+# ---------------------------------------------------------------------------
+# IDE y entorno local
+# ---------------------------------------------------------------------------
+.idea/
+*.iml
+.vscode/
+.settings/
+.project
+.classpath
+.env
+
+# ---------------------------------------------------------------------------
+# Sistema operativo
+# ---------------------------------------------------------------------------
+Thumbs.db
+.DS_Store
