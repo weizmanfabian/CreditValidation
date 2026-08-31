@@ -1,0 +1,13 @@
+spring:
+  application:
+    name: buro
+
+server:
+  port: 8081
+
+buro:
+  simulacion:
+    # Documento que el enunciado reserva para simular el servicio caido: la
+    # respuesta se retrasa mas alla del timeout del motor.
+    documento-servicio-caido: "0000000000"
+    retardo-servicio-caido: 10s

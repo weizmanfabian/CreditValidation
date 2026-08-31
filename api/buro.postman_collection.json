@@ -1,0 +1,527 @@
+{
+  "info": {
+    "name": "CreditValidation - Buro de credito simulado",
+    "description": "Pruebas del buro de credito simulado (modulo `buro/`, puerto 8081) del sistema de solicitud de credito de consumo.\n\n## Como usarla\n\n1. Levanta el buro: `mvn -f buro/pom.xml spring-boot:run`, o el compose de `docker/`.\n2. Importa esta coleccion y el entorno `local.postman_environment.json`.\n3. Selecciona el entorno **CreditValidation - local** y lanza la coleccion completa con el Collection Runner.\n\nNinguna peticion escribe el host a mano: todas usan `{{baseUrl}}`. Para apuntar al compose se cambia solo esa variable del entorno.\n\n## Que cubre\n\nLas tres reglas del mock del enunciado (par, impar y el documento reservado del servicio caido) y las familias de error del contrato de `docs/error-handling.md` que aplican al buro. Cada peticion trae aserciones, asi que el Runner da un veredicto y no solo un volcado de JSON.\n\n## Aviso sobre la peticion 3\n\nTarda unos 10 s **a proposito**: es el caso del servicio caido. No es un cuelgue ni un fallo de red.\n\nEquivalente en formato `.http`: `api/buro.http`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Casos validos",
+      "description": "Las tres reglas del mock del enunciado.",
+      "item": [
+        {
+          "name": "1. Caso par - score alto, titular al dia",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const cuerpo = pm.response.json();",
+                  "",
+                  "pm.test(\"Trae los cuatro campos del contrato\", () => {",
+                  "    pm.expect(cuerpo).to.have.all.keys(",
+                  "        \"score\", \"estado\", \"reporteNegativo\", \"fechaConsulta\");",
+                  "});",
+                  "",
+                  "pm.test(\"Score en el rango par [600,850]\", () => {",
+                  "    pm.expect(cuerpo.score).to.be.within(600, 850);",
+                  "});",
+                  "",
+                  "pm.test(\"Determinista: 1234567890 da siempre 635\", () => {",
+                  "    pm.expect(cuerpo.score).to.eql(635);",
+                  "});",
+                  "",
+                  "pm.test(\"Titular ACTIVO y sin reporte negativo\", () => {",
+                  "    pm.expect(cuerpo.estado).to.eql(\"ACTIVO\");",
+                  "    pm.expect(cuerpo.reporteNegativo).to.be.false;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipoDocumento\": \"CC\",\n  \"numeroDocumento\": \"{{documentoPar}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/buro/consulta",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "buro",
+                "consulta"
+              ]
+            },
+            "description": "Documento terminado en digito par. El generador es determinista (la semilla se deriva del numero), asi que este documento devuelve SIEMPRE score 635."
+          }
+        },
+        {
+          "name": "2. Caso impar - score bajo, titular en mora",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const cuerpo = pm.response.json();",
+                  "",
+                  "pm.test(\"Trae los cuatro campos del contrato\", () => {",
+                  "    pm.expect(cuerpo).to.have.all.keys(",
+                  "        \"score\", \"estado\", \"reporteNegativo\", \"fechaConsulta\");",
+                  "});",
+                  "",
+                  "pm.test(\"Score en el rango impar [300,550]\", () => {",
+                  "    pm.expect(cuerpo.score).to.be.within(300, 550);",
+                  "});",
+                  "",
+                  "pm.test(\"Determinista: 1234567891 da siempre 381\", () => {",
+                  "    pm.expect(cuerpo.score).to.eql(381);",
+                  "});",
+                  "",
+                  "pm.test(\"Titular EN_MORA y con reporte negativo\", () => {",
+                  "    pm.expect(cuerpo.estado).to.eql(\"EN_MORA\");",
+                  "    pm.expect(cuerpo.reporteNegativo).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipoDocumento\": \"CC\",\n  \"numeroDocumento\": \"{{documentoImpar}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/buro/consulta",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "buro",
+                "consulta"
+              ]
+            },
+            "description": "Documento terminado en digito impar. Determinista: devuelve siempre 381."
+          }
+        },
+        {
+          "name": "3. Servicio caido - documento reservado 0000000000",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const cuerpo = pm.response.json();",
+                  "",
+                  "pm.test(\"Trae los cuatro campos del contrato\", () => {",
+                  "    pm.expect(cuerpo).to.have.all.keys(",
+                  "        \"score\", \"estado\", \"reporteNegativo\", \"fechaConsulta\");",
+                  "});",
+                  "",
+                  "const retardoEsperado = Number(pm.variables.get(\"retardoEsperadoMs\"));",
+                  "",
+                  "pm.test(\"La respuesta llega retrasada, no con error\", () => {",
+                  "    pm.expect(pm.response.responseTime).to.be.above(retardoEsperado * 0.9);",
+                  "});",
+                  "",
+                  "pm.test(\"Tras la espera responde con normalidad (par: 650, ACTIVO)\", () => {",
+                  "    pm.expect(cuerpo.score).to.eql(650);",
+                  "    pm.expect(cuerpo.estado).to.eql(\"ACTIVO\");",
+                  "    pm.expect(cuerpo.reporteNegativo).to.be.false;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipoDocumento\": \"CC\",\n  \"numeroDocumento\": \"{{documentoServicioCaido}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/buro/consulta",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "buro",
+                "consulta"
+              ]
+            },
+            "description": "OJO: la espera es el comportamiento esperado, no un servicio colgado.\n\nEl buro retrasa la respuesta buro.simulacion.retardo-servicio-caido (10 s por defecto) y despues responde 200 con normalidad. NO devuelve error: el timeout lo declara el cliente. El motor, con un timeout mas corto, caera en su fallback y resolvera PENDIENTE_REVISION.\n\nEl documento termina en 0, que es par, asi que sigue la regla de paridad: score 650, ACTIVO, sin reporte negativo.\n\nSi cambiaste el retardo en application.yml, ajusta la variable retardoEsperadoMs de la coleccion."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Errores",
+      "description": "Contrato de errores de `docs/error-handling.md`. En todas se comprueba lo mismo: que el codigo HTTP sea el correcto, que `field` y `location` identifiquen el dato culpable, y que ninguna traza de pila llegue al cliente.",
+      "item": [
+        {
+          "name": "4. Invalido - numeroDocumento no numerico",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 400\", () => pm.response.to.have.status(400));",
+                  "",
+                  "const cuerpo = pm.response.json();",
+                  "",
+                  "pm.test(\"Trae el message del contrato de errores\", () => {",
+                  "    pm.expect(cuerpo.message).to.be.a(\"string\").and.not.empty;",
+                  "});",
+                  "",
+                  "pm.test(\"No filtra traza de pila al cliente\", () => {",
+                  "    pm.expect(pm.response.text()).to.not.include(\"java.lang\");",
+                  "    pm.expect(cuerpo).to.not.have.property(\"trace\");",
+                  "});",
+                  "",
+                  "pm.test(\"Senala el campo y donde venia\", () => {",
+                  "    pm.expect(cuerpo.errors).to.be.an(\"array\").with.lengthOf(1);",
+                  "    pm.expect(cuerpo.errors[0].field).to.eql(\"numeroDocumento\");",
+                  "    pm.expect(cuerpo.errors[0].location).to.eql(\"body\");",
+                  "    pm.expect(cuerpo.errors[0].message).to.be.a(\"string\").and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipoDocumento\": \"CC\",\n  \"numeroDocumento\": \"abc\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/buro/consulta",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "buro",
+                "consulta"
+              ]
+            },
+            "description": "El patron del DTO exige entre 6 y 15 digitos. Espera 400 con un elemento en errors[]: field=numeroDocumento y location=body."
+          }
+        },
+        {
+          "name": "5. Invalido - dos campos malos a la vez",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 400\", () => pm.response.to.have.status(400));",
+                  "",
+                  "const cuerpo = pm.response.json();",
+                  "",
+                  "pm.test(\"Trae el message del contrato de errores\", () => {",
+                  "    pm.expect(cuerpo.message).to.be.a(\"string\").and.not.empty;",
+                  "});",
+                  "",
+                  "pm.test(\"No filtra traza de pila al cliente\", () => {",
+                  "    pm.expect(pm.response.text()).to.not.include(\"java.lang\");",
+                  "    pm.expect(cuerpo).to.not.have.property(\"trace\");",
+                  "});",
+                  "",
+                  "pm.test(\"Devuelve los dos campos, no solo el primero\", () => {",
+                  "    pm.expect(cuerpo.errors).to.be.an(\"array\").with.lengthOf(2);",
+                  "    const campos = cuerpo.errors.map((error) => error.field).sort();",
+                  "    pm.expect(campos).to.eql([\"numeroDocumento\", \"tipoDocumento\"]);",
+                  "});",
+                  "",
+                  "pm.test(\"Todos los errores vienen del body\", () => {",
+                  "    cuerpo.errors.forEach((error) => pm.expect(error.location).to.eql(\"body\"));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipoDocumento\": null,\n  \"numeroDocumento\": \"abc\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/buro/consulta",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "buro",
+                "consulta"
+              ]
+            },
+            "description": "Demuestra que se devuelven TODOS los campos rechazados, no solo el primero. El orden lo fija el validador y no esta garantizado: por eso la asercion compara conjuntos y no posiciones."
+          }
+        },
+        {
+          "name": "6. Invalido - tipoDocumento fuera del catalogo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 400\", () => pm.response.to.have.status(400));",
+                  "",
+                  "const cuerpo = pm.response.json();",
+                  "",
+                  "pm.test(\"Trae el message del contrato de errores\", () => {",
+                  "    pm.expect(cuerpo.message).to.be.a(\"string\").and.not.empty;",
+                  "});",
+                  "",
+                  "pm.test(\"No filtra traza de pila al cliente\", () => {",
+                  "    pm.expect(pm.response.text()).to.not.include(\"java.lang\");",
+                  "    pm.expect(cuerpo).to.not.have.property(\"trace\");",
+                  "});",
+                  "",
+                  "pm.test(\"Lo trata como cuerpo ilegible, no como fallo del servidor\", () => {",
+                  "    pm.expect(cuerpo).to.have.property(\"detalles\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipoDocumento\": \"TI\",\n  \"numeroDocumento\": \"{{documentoPar}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/buro/consulta",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "buro",
+                "consulta"
+              ]
+            },
+            "description": "El catalogo es CC, CE o PA. Un valor fuera de el falla al deserializar y lo traduce el manejador de cuerpo ilegible. Espera 400, nunca un 500."
+          }
+        },
+        {
+          "name": "7. JSON malformado - coma de mas",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 400\", () => pm.response.to.have.status(400));",
+                  "",
+                  "const cuerpo = pm.response.json();",
+                  "",
+                  "pm.test(\"Trae el message del contrato de errores\", () => {",
+                  "    pm.expect(cuerpo.message).to.be.a(\"string\").and.not.empty;",
+                  "});",
+                  "",
+                  "pm.test(\"No filtra traza de pila al cliente\", () => {",
+                  "    pm.expect(pm.response.text()).to.not.include(\"java.lang\");",
+                  "    pm.expect(cuerpo).to.not.have.property(\"trace\");",
+                  "});",
+                  "",
+                  "pm.test(\"Dice que el cuerpo no es un JSON valido\", () => {",
+                  "    pm.expect(cuerpo.message.toLowerCase()).to.include(\"json\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipoDocumento\": \"CC\",\n  \"numeroDocumento\": \"{{documentoPar}}\",\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/buro/consulta",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "buro",
+                "consulta"
+              ]
+            },
+            "description": "Un cuerpo que ni siquiera es JSON valido debe dar 400 con mensaje claro, no un 500 con traza."
+          }
+        },
+        {
+          "name": "8. Ruta inexistente",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 404, no 500\", () => pm.response.to.have.status(404));",
+                  "",
+                  "pm.test(\"No filtra traza de pila al cliente\", () => {",
+                  "    pm.expect(pm.response.text()).to.not.include(\"java.lang\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipoDocumento\": \"CC\",\n  \"numeroDocumento\": \"{{documentoPar}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/buro/consultas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "buro",
+                "consultas"
+              ]
+            },
+            "description": "El manejador general conserva los 4xx de Spring (D-014): espera 404, no un 500."
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "documentoPar",
+      "value": "1234567890",
+      "type": "string"
+    },
+    {
+      "key": "documentoImpar",
+      "value": "1234567891",
+      "type": "string"
+    },
+    {
+      "key": "documentoServicioCaido",
+      "value": "0000000000",
+      "type": "string"
+    },
+    {
+      "key": "retardoEsperadoMs",
+      "value": "10000",
+      "type": "string"
+    }
+  ]
+}
