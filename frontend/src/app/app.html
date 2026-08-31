@@ -1,6 +1,20 @@
 <header class="cabecera">
   <h1>Validación de crédito</h1>
+  <nav class="pestanas">
+    <button type="button" class="pestana" [class.activa]="pantalla() === 'solicitud'"
+            (click)="mostrarPantalla('solicitud')">
+      Nueva solicitud
+    </button>
+    <button type="button" class="pestana" [class.activa]="pantalla() === 'consulta'"
+            (click)="mostrarPantalla('consulta')">
+      Consultar estado
+    </button>
+  </nav>
 </header>
 <main>
-  <app-formulario-solicitud />
+  @if (pantalla() === 'solicitud') {
+    <app-formulario-solicitud />
+  } @else {
+    <app-consulta-estado />
+  }
 </main>

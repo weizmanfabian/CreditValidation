@@ -1,0 +1,37 @@
+.listado {
+  margin-top: 1.5rem;
+}
+
+.solicitudes {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.solicitud {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 0.25rem 1rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid #eceef2;
+}
+
+.solicitud-id {
+  font-weight: 600;
+}
+
+.solicitud-fecha {
+  font-size: 0.9rem;
+  color: #5a6373;
+}
+
+.solicitud-detalle {
+  grid-column: 1 / -1;
+  font-size: 0.9rem;
+  color: #5a6373;
+}
+
+.sin-solicitudes {
+  color: #5a6373;
+}

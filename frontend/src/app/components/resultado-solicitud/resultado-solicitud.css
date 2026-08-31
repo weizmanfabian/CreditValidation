@@ -14,44 +14,6 @@
   font-size: 1.4rem;
 }
 
-.badge-estado {
-  padding: 0.25rem 0.75rem;
-  border-radius: 1rem;
-  font-size: 0.85rem;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.estado-aprobado {
-  background: #e3f4e6;
-  color: #1e7a33;
-}
-
-.estado-preaprobado {
-  background: #e2edfb;
-  color: #1a4fa0;
-}
-
-.estado-rechazado {
-  background: #fbe4e2;
-  color: #b3261e;
-}
-
-.estado-rechazado-fraude {
-  background: #b3261e;
-  color: #ffffff;
-}
-
-.estado-pendiente-revision {
-  background: #fdf2d9;
-  color: #8a6116;
-}
-
-.estado-desconocido {
-  background: #e4e7ec;
-  color: #40495a;
-}
-
 .radicado {
   color: #5a6373;
 }

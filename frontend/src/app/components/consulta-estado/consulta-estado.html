@@ -1,0 +1,72 @@
+<section class="tarjeta">
+  <h2>Consulta de estado</h2>
+
+  <form [formGroup]="formulario" (ngSubmit)="consultar()" novalidate>
+
+    <div class="campo">
+      <label for="tipoDocumentoConsulta">Tipo de documento</label>
+      <select id="tipoDocumentoConsulta" formControlName="tipoDocumento">
+        <option [ngValue]="null" disabled>Seleccione una opción</option>
+        @for (tipo of tiposDocumento; track tipo) {
+          <option [ngValue]="tipo">{{ tipo }}</option>
+        }
+      </select>
+      @if (obtenerErrorVisible('tipoDocumento'); as mensaje) {
+        <p class="error-campo">{{ mensaje }}</p>
+      }
+    </div>
+
+    <div class="campo">
+      <label for="numeroDocumentoConsulta">Número de documento</label>
+      <input id="numeroDocumentoConsulta" type="text" inputmode="numeric" formControlName="numeroDocumento" />
+      @if (obtenerErrorVisible('numeroDocumento'); as mensaje) {
+        <p class="error-campo">{{ mensaje }}</p>
+      }
+    </div>
+
+    @if (errorConsulta()) {
+      <p class="aviso aviso-error error-consulta" role="alert">
+        No fue posible consultar las solicitudes. Intenta de nuevo.
+      </p>
+    }
+
+    <button type="submit" [disabled]="formulario.invalid || consultando()">
+      @if (consultando()) {
+        Consultando…
+      } @else {
+        Consultar
+      }
+    </button>
+
+    @if (consultando()) {
+      <p class="aviso aviso-carga" role="status">Consultando las solicitudes, espera un momento…</p>
+    }
+
+  </form>
+</section>
+
+@if (solicitudes(); as solicitudes) {
+  <section class="tarjeta listado" aria-live="polite">
+    <h2>Solicitudes encontradas</h2>
+
+    @if (solicitudes.length > 0) {
+      <ul class="solicitudes">
+        @for (solicitud of solicitudes; track solicitud.idSolicitud) {
+          <li class="solicitud">
+            <span class="solicitud-id">{{ solicitud.idSolicitud }}</span>
+            <span class="badge-estado" [class]="obtenerClaseEstado(solicitud.estado)">{{ solicitud.estado }}</span>
+            <span class="solicitud-fecha">{{ solicitud.fechaCreacion | date: 'dd/MM/yyyy HH:mm' }}</span>
+            <span class="solicitud-detalle">
+              $ {{ solicitud.montoSolicitado | number }} a {{ solicitud.plazoMeses }} meses
+              @if (solicitud.tasaEstimada != null) {
+                · tasa {{ solicitud.tasaEstimada }}% mensual
+              }
+            </span>
+          </li>
+        }
+      </ul>
+    } @else {
+      <p class="sin-solicitudes">Este documento no tiene solicitudes registradas.</p>
+    }
+  </section>
+}
