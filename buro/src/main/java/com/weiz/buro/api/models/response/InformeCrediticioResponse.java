@@ -1,5 +1,6 @@
 package com.weiz.buro.api.models.response;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.weiz.buro.util.enums.EstadoTitular;
 
 import java.time.LocalDateTime;
@@ -25,5 +26,6 @@ public record InformeCrediticioResponse(
 
         boolean reporteNegativo,
 
+        @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss")
         LocalDateTime fechaConsulta) {
 }

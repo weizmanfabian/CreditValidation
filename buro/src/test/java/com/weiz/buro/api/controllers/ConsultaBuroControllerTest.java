@@ -48,7 +48,7 @@ class ConsultaBuroControllerTest {
     private static final String RUTA_PRIMERA_LOCALIZACION = "$.errors[0].location";
 
     private static final String MENSAJE_DATOS_INVALIDOS = "Error en los datos proporcionados";
-    private static final String PATRON_FECHA_ISO = "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?";
+    private static final String PATRON_FECHA_CONSULTA = "^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}$";
 
     private static final String CUERPO_DOCUMENTO_PAR = """
             {"tipoDocumento": "CC", "numeroDocumento": "1234567890"}
@@ -79,7 +79,7 @@ class ConsultaBuroControllerTest {
                 .andExpect(jsonPath(RUTA_SCORE).value(635))
                 .andExpect(jsonPath(RUTA_ESTADO).value("ACTIVO"))
                 .andExpect(jsonPath(RUTA_REPORTE_NEGATIVO).value(false))
-                .andExpect(jsonPath(RUTA_FECHA_CONSULTA).value(matchesPattern(PATRON_FECHA_ISO)));
+                .andExpect(jsonPath(RUTA_FECHA_CONSULTA).value(matchesPattern(PATRON_FECHA_CONSULTA)));
     }
 
     @Test
@@ -92,7 +92,23 @@ class ConsultaBuroControllerTest {
                 .andExpect(jsonPath(RUTA_SCORE).value(381))
                 .andExpect(jsonPath(RUTA_ESTADO).value("EN_MORA"))
                 .andExpect(jsonPath(RUTA_REPORTE_NEGATIVO).value(true))
-                .andExpect(jsonPath(RUTA_FECHA_CONSULTA).value(matchesPattern(PATRON_FECHA_ISO)));
+                .andExpect(jsonPath(RUTA_FECHA_CONSULTA).value(matchesPattern(PATRON_FECHA_CONSULTA)));
+    }
+
+    /**
+     * Fija el formato serializado de la unica fecha del contrato. El patron esta
+     * anclado, asi que rechaza tanto la {@code T} de ISO como las fracciones de
+     * segundo: si se quita el {@code @JsonFormat} del informe, este caso se pone
+     * rojo.
+     */
+    @Test
+    @DisplayName("fechaConsulta viaja como yyyy-MM-dd HH:mm:ss, sin la T de ISO ni fracciones de segundo")
+    void consultarInforme_conDocumentoValido_serializaLaFechaConElFormatoDelContrato() throws Exception {
+        mockMvc.perform(post(RUTA_CONSULTA)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(CUERPO_DOCUMENTO_PAR))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath(RUTA_FECHA_CONSULTA).value(matchesPattern(PATRON_FECHA_CONSULTA)));
     }
 
     /**

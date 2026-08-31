@@ -11,7 +11,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Fija el contrato JSON del informe contra el ejemplo del enunciado: los cuatro
- * campos con su nombre exacto y el estado como enum, no como cadena suelta.
+ * campos con su nombre exacto, el estado como enum y la fecha con el formato
+ * {@code yyyy-MM-dd HH:mm:ss} que impone el {@code @JsonFormat} del record.
  */
 class InformeCrediticioResponseTest {
 
@@ -29,6 +30,6 @@ class InformeCrediticioResponseTest {
                 .contains("\"score\":750")
                 .contains("\"estado\":\"ACTIVO\"")
                 .contains("\"reporteNegativo\":false")
-                .contains("\"fechaConsulta\":\"2026-08-24T10:30:00\"");
+                .contains("\"fechaConsulta\":\"2026-08-24 10:30:00\"");
     }
 }

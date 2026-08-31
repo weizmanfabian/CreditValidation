@@ -93,17 +93,17 @@ class ConsultaBuroRequestTest {
                 .satisfies(violacion -> assertThat(violacion.getPropertyPath())
                         .hasToString(CAMPO_TIPO_DOCUMENTO))
                 .extracting(ConstraintViolation::getMessage)
-                .isEqualTo("tipoDocumento es requerido (CC, CE o PA)");
+                .isEqualTo("Tipo de documento es requerido y debe ser CC, CE o PA");
     }
 
     @ParameterizedTest(name = "numeroDocumento={0} produce \"{1}\"")
     @CsvSource(nullValues = "NULO", value = {
-            "NULO,                numeroDocumento es requerido",
-            "'',                  numeroDocumento es requerido",
-            "12345,               numeroDocumento debe tener entre 6 y 15 digitos numericos",
-            "1234567890123456,    numeroDocumento debe tener entre 6 y 15 digitos numericos",
-            "1234-56789,          numeroDocumento debe tener entre 6 y 15 digitos numericos",
-            "ABCDEFGHIJ,          numeroDocumento debe tener entre 6 y 15 digitos numericos"
+            "NULO,                Numero de documento es requerido y debe tener entre 6 y 15 digitos numericos",
+            "'',                  Numero de documento es requerido y debe tener entre 6 y 15 digitos numericos",
+            "12345,               Numero de documento debe tener entre 6 y 15 digitos numericos",
+            "1234567890123456,    Numero de documento debe tener entre 6 y 15 digitos numericos",
+            "1234-56789,          Numero de documento debe tener entre 6 y 15 digitos numericos",
+            "ABCDEFGHIJ,          Numero de documento debe tener entre 6 y 15 digitos numericos"
     })
     @DisplayName("Un numero de documento invalido se reporta sobre su propio campo y en espanol")
     void validar_conNumeroDocumentoInvalido_reportaElCampoConSuMensaje(String numeroDocumento,
