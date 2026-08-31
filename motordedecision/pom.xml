@@ -99,9 +99,39 @@
 			<artifactId>spring-boot-starter-webmvc-test</artifactId>
 			<scope>test</scope>
 		</dependency>
+		<!-- PostgreSQL real, solo para la guarda de D-027: comprobar que las
+		     entidades no se separan de db/sql/01-create_schema.sql. La suite
+		     sigue corriendo sobre H2; este test se SALTA en una maquina sin
+		     Docker (docs/verification.md §3). Las versiones las gestiona el BOM
+		     de Spring Boot. -->
+		<dependency>
+			<groupId>org.testcontainers</groupId>
+			<artifactId>testcontainers-postgresql</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.testcontainers</groupId>
+			<artifactId>testcontainers-junit-jupiter</artifactId>
+			<scope>test</scope>
+		</dependency>
 	</dependencies>
 
 	<build>
+		<testResources>
+			<testResource>
+				<directory>src/test/resources</directory>
+			</testResource>
+			<!-- El esquema versionado viaja al classpath de pruebas para que
+			     `withInitScript` lo ejecute. Se copia, no se duplica: la fuente
+			     de verdad sigue siendo db/sql/01-create_schema.sql (D-025). -->
+			<testResource>
+				<directory>db/sql</directory>
+				<targetPath>db/sql</targetPath>
+				<includes>
+					<include>01-create_schema.sql</include>
+				</includes>
+			</testResource>
+		</testResources>
 		<plugins>
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
