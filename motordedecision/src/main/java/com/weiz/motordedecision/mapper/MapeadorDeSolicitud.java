@@ -3,6 +3,7 @@ package com.weiz.motordedecision.mapper;
 import com.weiz.motordedecision.api.models.response.SolicitudCreditoResponse;
 import com.weiz.motordedecision.domain.entities.Solicitud;
 import com.weiz.motordedecision.util.enums.EstadoSolicitud;
+import com.weiz.motordedecision.util.exceptions.tecnica.EstadoDeSolicitudDesconocido;
 
 import java.util.List;
 
@@ -18,6 +19,9 @@ import java.util.List;
  * El detalle esta en {@link #mapearARespuesta}.
  */
 public class MapeadorDeSolicitud {
+
+    /** Marca del estado ausente: ningun valor de {@code EstadoSolicitud} se llama asi. */
+    private static final String ESTADO_AUSENTE = "(sin estado)";
 
     private final List<AportanteDeSeccion> aportantes;
 
@@ -36,7 +40,7 @@ public class MapeadorDeSolicitud {
      * @return la respuesta con las secciones que aplican al caso
      */
     public SolicitudCreditoResponse mapearARespuesta(Solicitud solicitud) {
-        EstadoSolicitud estado = EstadoSolicitud.valueOf(solicitud.getEstado());
+        EstadoSolicitud estado = resolverEstado(solicitud);
         SolicitudCreditoResponse.Builder constructor = SolicitudCreditoResponse.crearConstructorPara(
                 solicitud.getIdSolicitud(), solicitud.getFechaCreacion(), estado);
 
@@ -44,5 +48,27 @@ public class MapeadorDeSolicitud {
         aportantes.forEach(aportante -> aportante.aportarA(constructor, solicitud, estado));
 
         return constructor.construir();
+    }
+
+    /**
+     * Traduce la columna {@code estado} al catalogo del motor.
+     *
+     * Un valor fuera del catalogo no puede salir como
+     * {@link IllegalArgumentException} crudo: el manejador lo tomaria por un
+     * error del cliente y responderia 400. Se envuelve en una excepcion tecnica
+     * del modulo, que responde 500 y deja la causa en el log
+     * ({@code docs/conventions.md} §6).
+     *
+     * El estado nulo se traduce a un texto que ningun valor del enum tiene, para
+     * que siga el mismo camino que un valor desconocido en vez de reventar con
+     * un {@link NullPointerException}.
+     */
+    private static EstadoSolicitud resolverEstado(Solicitud solicitud) {
+        String estado = solicitud.getEstado();
+        try {
+            return EstadoSolicitud.valueOf(estado == null ? ESTADO_AUSENTE : estado);
+        } catch (IllegalArgumentException causa) {
+            throw new EstadoDeSolicitudDesconocido(solicitud.getIdSolicitud(), estado, causa);
+        }
     }
 }

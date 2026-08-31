@@ -7,6 +7,8 @@ import com.weiz.motordedecision.api.models.response.SolicitudCreditoResponse;
 import com.weiz.motordedecision.api.models.response.ValidacionRealizada;
 import com.weiz.motordedecision.domain.entities.Solicitud;
 import com.weiz.motordedecision.util.enums.EstadoSolicitud;
+import com.weiz.motordedecision.util.exceptions.ExcepcionTecnica;
+import com.weiz.motordedecision.util.exceptions.tecnica.EstadoDeSolicitudDesconocido;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -28,6 +30,7 @@ import static com.weiz.motordedecision.mapper.SolicitudesPersistidasDePrueba.SCO
 import static com.weiz.motordedecision.mapper.SolicitudesPersistidasDePrueba.crearSolicitudConLaCadenaCompleta;
 import static com.weiz.motordedecision.mapper.SolicitudesPersistidasDePrueba.crearSolicitudRechazadaPorDocumentoBloqueado;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Prueba que secciones lleva la respuesta en cada estado, con los aportantes de
@@ -161,6 +164,31 @@ class MapeadorDeSolicitudTest {
                 .returns(PASO_DE_APROBADO, SolicitudCreditoResponse::siguientePaso);
         // Y la seccion nueva recibio su turno, con el estado que decidio el motor
         assertThat(loQueRecibeLaSeccionNueva).containsExactly(EstadoSolicitud.APROBADO);
+    }
+
+    @Test
+    @DisplayName("Un estado fuera del catalogo lanza la excepcion tecnica del modulo, no el error crudo")
+    void mapearARespuesta_conEstadoDesconocido_lanzaLaExcepcionTecnicaEnvuelta() {
+        Solicitud solicitud = crearSolicitudConLaCadenaCompleta(EstadoSolicitud.APROBADO);
+        solicitud.setEstado("CANCELADO");
+
+        assertThatThrownBy(() -> mapeador.mapearARespuesta(solicitud))
+                .isInstanceOf(EstadoDeSolicitudDesconocido.class)
+                .isInstanceOf(ExcepcionTecnica.class)
+                .hasMessageContaining(ID_SOLICITUD)
+                .hasMessageContaining("CANCELADO")
+                .hasCauseInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("Un estado ausente sigue el mismo camino que uno desconocido, no un NullPointerException")
+    void mapearARespuesta_conEstadoNulo_lanzaLaMismaExcepcionTecnica() {
+        Solicitud solicitud = crearSolicitudConLaCadenaCompleta(EstadoSolicitud.APROBADO);
+        solicitud.setEstado(null);
+
+        assertThatThrownBy(() -> mapeador.mapearARespuesta(solicitud))
+                .isInstanceOf(EstadoDeSolicitudDesconocido.class)
+                .hasCauseInstanceOf(IllegalArgumentException.class);
     }
 
     private static List<AportanteDeSeccion> crearAportantesReales() {
