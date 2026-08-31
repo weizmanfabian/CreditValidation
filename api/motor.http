@@ -1,0 +1,158 @@
+### Motor de decisión — radicación de solicitudes
+#
+# Servicio: motordedecision/ · puerto 8080
+# Requiere el buró levantado en el 8081: el estado final depende del score
+# que el buró calcula por la paridad del último dígito del documento.
+# Contrato: docs/prueba-tecnica-desarrollador1.md
+# Errores:  docs/error-handling.md
+#
+# Las URL salen de variables: no escribas hosts a mano en cada petición.
+# Para apuntar al compose, cambia solo @host.
+
+@host = http://localhost:8080
+@solicitudes = {{host}}/api/solicitudes
+
+# Documentos de prueba. El buró es determinista (la semilla sale del propio
+# número), así que cada documento produce siempre el mismo score:
+#   1234567892 -> 727 (par, ACTIVO)      1234567890 -> 635 (par, ACTIVO)
+#   1234567891 -> 381 (impar, EN_MORA)   1010101010 -> lista de bloqueados
+#   0000000000 -> el buró tarda ~10 s y el motor cae en su fallback
+@documentoAprobado = 1234567892
+@documentoPreaprobado = 1234567890
+@documentoRechazado = 1234567891
+@documentoBloqueado = 1010101010
+@documentoServicioCaido = 0000000000
+
+
+### 1. Aprobado — score 727 >= 700 y monto <= 8 veces los ingresos
+# Espera 200 · estado APROBADO · tasaEstimada 1.2 · siguientePaso del contrato
+# y las cuatro validaciones APROBADO en evaluacion.validaciones.
+POST {{solicitudes}}
+Content-Type: application/json
+
+{
+  "tipoDocumento": "CC",
+  "numeroDocumento": "{{documentoAprobado}}",
+  "nombres": "Juan",
+  "apellidos": "Pérez",
+  "correo": "juan.perez@example.com",
+  "celular": "3001234567",
+  "montoSolicitado": 15000000,
+  "plazoMeses": 36,
+  "ingresosMensuales": 4000000
+}
+
+
+### 2. Preaprobado — score 635 en [600,700) y monto <= 5 veces los ingresos
+# Es la solicitud del ejemplo del enunciado. Espera 200 · PREAPROBADO ·
+# tasaEstimada 1.8 y su propio siguientePaso.
+POST {{solicitudes}}
+Content-Type: application/json
+
+{
+  "tipoDocumento": "CC",
+  "numeroDocumento": "{{documentoPreaprobado}}",
+  "nombres": "Juan",
+  "apellidos": "Pérez",
+  "correo": "juan.perez@example.com",
+  "celular": "3001234567",
+  "montoSolicitado": 15000000,
+  "plazoMeses": 36,
+  "ingresosMensuales": 4000000
+}
+
+
+### 3. Rechazado — score 381 < 600, la cadena corta en la validación de Score
+# Espera 200 (un rechazo no es un error) · RECHAZADO · sin tasaEstimada ·
+# evaluacion.validaciones con el corte: Identidad APROBADO y Score RECHAZADO.
+POST {{solicitudes}}
+Content-Type: application/json
+
+{
+  "tipoDocumento": "CC",
+  "numeroDocumento": "{{documentoRechazado}}",
+  "nombres": "Juan",
+  "apellidos": "Pérez",
+  "correo": "juan.perez@example.com",
+  "celular": "3001234567",
+  "montoSolicitado": 15000000,
+  "plazoMeses": 36,
+  "ingresosMensuales": 4000000
+}
+
+
+### 4. Fraude — documento en la lista de bloqueados
+# Espera 200 · RECHAZADO_FRAUDE · sin tasaEstimada ni siguientePaso (rechazo
+# temprano, enunciado línea 91) · una sola validación: Identidad RECHAZADO.
+POST {{solicitudes}}
+Content-Type: application/json
+
+{
+  "tipoDocumento": "CC",
+  "numeroDocumento": "{{documentoBloqueado}}",
+  "nombres": "Juan",
+  "apellidos": "Pérez",
+  "correo": "juan.perez@example.com",
+  "celular": "3001234567",
+  "montoSolicitado": 15000000,
+  "plazoMeses": 36,
+  "ingresosMensuales": 4000000
+}
+
+
+### 5. Entrada inválida — seis campos mal y tres ausentes
+# Espera 400 · message "Error en los datos proporcionados" · errors[] con los
+# NUEVE campos (no solo el primero), cada uno con su mensaje y location=body.
+POST {{solicitudes}}
+Content-Type: application/json
+
+{
+  "numeroDocumento": "12",
+  "correo": "correo-sin-arroba",
+  "celular": "1234567890",
+  "montoSolicitado": 500000,
+  "plazoMeses": 18,
+  "ingresosMensuales": 0
+}
+
+
+### 6. Buró caído — documento reservado 0000000000
+#
+# OJO: tarda unos segundos a propósito. El buró retrasa su respuesta ~10 s, el
+# cliente del motor agota su tiempo de espera, reintenta con backoff y cae en
+# el fallback. Espera 200 (nunca un 5xx) · PENDIENTE_REVISION · sin score en
+# evaluacion · siguientePaso del analista.
+POST {{solicitudes}}
+Content-Type: application/json
+
+{
+  "tipoDocumento": "CC",
+  "numeroDocumento": "{{documentoServicioCaido}}",
+  "nombres": "Juan",
+  "apellidos": "Pérez",
+  "correo": "juan.perez@example.com",
+  "celular": "3001234567",
+  "montoSolicitado": 15000000,
+  "plazoMeses": 36,
+  "ingresosMensuales": 4000000
+}
+
+
+### 7. Consulta de estado — documento con solicitudes radicadas
+# Corre antes las peticiones 1-6: la consulta lista lo que la radicación dejó.
+# Espera 200 · lista con las solicitudes de CC {{documentoPreaprobado}}, de la
+# más reciente a la más antigua; cada elemento con idSolicitud, fechaCreacion,
+# estado, monto, plazo y la tasa sellada al radicar (sin tasa en los rechazos).
+GET {{solicitudes}}/CC/{{documentoPreaprobado}}
+
+
+### 8. Consulta de estado — documento sin solicitudes
+# Espera 200 con la lista vacía [], no 404: preguntar por un documento que
+# nunca ha radicado es un escenario normal de la pantalla de consulta.
+GET {{solicitudes}}/CC/999999999
+
+
+### 9. Consulta de estado — tipo de documento inválido
+# Espera 400 · message "Error en los datos proporcionados" · errors[0] con
+# field=tipoDocumento y location=path: el tipo XX no está en el catálogo CC/CE/PA.
+GET {{solicitudes}}/XX/{{documentoPreaprobado}}

@@ -1,0 +1,711 @@
+{
+  "info": {
+    "name": "CreditValidation - Motor de decision",
+    "description": "Pruebas de la radicacion de solicitudes del motor de decision (modulo `motordedecision/`, puerto 8080).\n\n## Como usarla\n\n1. Levanta el buro (`mvn -f buro/pom.xml spring-boot:run`) y el motor con su base de datos (`docker compose up -d` dentro de `motordedecision/` y el perfil `dev`).\n2. Importa esta coleccion y el entorno `local.postman_environment.json`.\n3. Selecciona el entorno **CreditValidation - local** y lanza la coleccion con el Collection Runner.\n\nNinguna peticion escribe el host a mano: todas usan `{{baseUrlMotor}}`.\n\n## Que cubre\n\nLos cinco escenarios de la radicacion: aprobado, preaprobado, rechazado, fraude y entrada invalida, mas el buro caido del enunciado; y despues la consulta de estado de esos mismos documentos, con el documento sin solicitudes y el tipo invalido del contrato de errores. Corrida en orden, la coleccion cuenta el flujo completo: radicar y consultar. El buro es determinista, asi que cada documento produce siempre el mismo score y las aserciones son estables: 1234567892 -> 727, 1234567890 -> 635, 1234567891 -> 381.\n\n## Aviso sobre la peticion 6\n\nTarda varios segundos **a proposito**: el buro retrasa su respuesta ~10 s y el motor agota su tiempo de espera, reintenta y cae en el fallback. No es un cuelgue.\n\nEquivalente en formato `.http`: `api/motor.http`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Casos del enunciado",
+      "description": "Los cuatro estados que decide el motor con el buro arriba.",
+      "item": [
+        {
+          "name": "1. Aprobado - score 727 y monto dentro del multiplo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const cuerpo = pm.response.json();",
+                  "",
+                  "pm.test(\"Estado APROBADO\", () => pm.expect(cuerpo.estado).to.eql(\"APROBADO\"));",
+                  "",
+                  "pm.test(\"Identificador de negocio SOL-yyyyMMdd-NNN\", () => {",
+                  "    pm.expect(cuerpo.idSolicitud).to.match(/^SOL-\\d{8}-\\d{3}$/);",
+                  "});",
+                  "",
+                  "pm.test(\"Trae tasa 1.2 y el siguiente paso del contrato\", () => {",
+                  "    pm.expect(cuerpo.detalle.tasaEstimada).to.eql(1.2);",
+                  "    pm.expect(cuerpo.siguientePaso).to.eql(\"Se enviará contrato al correo registrado en 24 horas\");",
+                  "});",
+                  "",
+                  "pm.test(\"Las cuatro validaciones aprobadas, en orden\", () => {",
+                  "    const nombres = cuerpo.evaluacion.validaciones.map(v => v.nombre);",
+                  "    pm.expect(nombres).to.eql([\"Identidad\", \"Score\", \"Capacidad de pago\", \"Reporte negativo\"]);",
+                  "    cuerpo.evaluacion.validaciones.forEach(v => pm.expect(v.resultado).to.eql(\"APROBADO\"));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipoDocumento\": \"CC\",\n  \"numeroDocumento\": \"1234567892\",\n  \"nombres\": \"Juan\",\n  \"apellidos\": \"Pérez\",\n  \"correo\": \"juan.perez@example.com\",\n  \"celular\": \"3001234567\",\n  \"montoSolicitado\": 15000000,\n  \"plazoMeses\": 36,\n  \"ingresosMensuales\": 4000000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrlMotor}}/api/solicitudes",
+              "host": [
+                "{{baseUrlMotor}}"
+              ],
+              "path": [
+                "api",
+                "solicitudes"
+              ]
+            },
+            "description": "Documento par con score 727 (>= 700) y monto 15M <= 8 veces los ingresos: la tabla de decision aprueba."
+          }
+        },
+        {
+          "name": "2. Preaprobado - la solicitud del ejemplo del enunciado",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const cuerpo = pm.response.json();",
+                  "",
+                  "pm.test(\"Estado PREAPROBADO\", () => pm.expect(cuerpo.estado).to.eql(\"PREAPROBADO\"));",
+                  "",
+                  "pm.test(\"Trae su tasa 1.8 y su propio siguiente paso\", () => {",
+                  "    pm.expect(cuerpo.detalle.tasaEstimada).to.eql(1.8);",
+                  "    pm.expect(cuerpo.siguientePaso).to.be.a(\"string\").and.not.be.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipoDocumento\": \"CC\",\n  \"numeroDocumento\": \"1234567890\",\n  \"nombres\": \"Juan\",\n  \"apellidos\": \"Pérez\",\n  \"correo\": \"juan.perez@example.com\",\n  \"celular\": \"3001234567\",\n  \"montoSolicitado\": 15000000,\n  \"plazoMeses\": 36,\n  \"ingresosMensuales\": 4000000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrlMotor}}/api/solicitudes",
+              "host": [
+                "{{baseUrlMotor}}"
+              ],
+              "path": [
+                "api",
+                "solicitudes"
+              ]
+            },
+            "description": "Documento del ejemplo: score 635 en [600,700) y monto <= 5 veces los ingresos."
+          }
+        },
+        {
+          "name": "3. Rechazado - score por debajo del corte",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Un rechazo responde 200, no un error\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const cuerpo = pm.response.json();",
+                  "",
+                  "pm.test(\"Estado RECHAZADO\", () => pm.expect(cuerpo.estado).to.eql(\"RECHAZADO\"));",
+                  "",
+                  "pm.test(\"Sin tasa estimada\", () => pm.expect(cuerpo.detalle).to.not.have.property(\"tasaEstimada\"));",
+                  "",
+                  "pm.test(\"El rastro llega hasta el corte: Identidad APROBADO y Score RECHAZADO\", () => {",
+                  "    const validaciones = cuerpo.evaluacion.validaciones;",
+                  "    pm.expect(validaciones).to.have.lengthOf(2);",
+                  "    pm.expect(validaciones[1].nombre).to.eql(\"Score\");",
+                  "    pm.expect(validaciones[1].resultado).to.eql(\"RECHAZADO\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipoDocumento\": \"CC\",\n  \"numeroDocumento\": \"1234567891\",\n  \"nombres\": \"Juan\",\n  \"apellidos\": \"Pérez\",\n  \"correo\": \"juan.perez@example.com\",\n  \"celular\": \"3001234567\",\n  \"montoSolicitado\": 15000000,\n  \"plazoMeses\": 36,\n  \"ingresosMensuales\": 4000000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrlMotor}}/api/solicitudes",
+              "host": [
+                "{{baseUrlMotor}}"
+              ],
+              "path": [
+                "api",
+                "solicitudes"
+              ]
+            },
+            "description": "Documento impar con score 381 (< 600): la cadena corta en la validacion de Score."
+          }
+        },
+        {
+          "name": "4. Fraude - documento en la lista de bloqueados",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"El fraude responde 200, no un error\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const cuerpo = pm.response.json();",
+                  "",
+                  "pm.test(\"Estado RECHAZADO_FRAUDE\", () => pm.expect(cuerpo.estado).to.eql(\"RECHAZADO_FRAUDE\"));",
+                  "",
+                  "pm.test(\"Rechazo temprano: sin tasa ni siguiente paso\", () => {",
+                  "    pm.expect(cuerpo.detalle).to.not.have.property(\"tasaEstimada\");",
+                  "    pm.expect(cuerpo).to.not.have.property(\"siguientePaso\");",
+                  "});",
+                  "",
+                  "pm.test(\"Una sola validacion: Identidad RECHAZADO\", () => {",
+                  "    const validaciones = cuerpo.evaluacion.validaciones;",
+                  "    pm.expect(validaciones).to.have.lengthOf(1);",
+                  "    pm.expect(validaciones[0].nombre).to.eql(\"Identidad\");",
+                  "    pm.expect(validaciones[0].resultado).to.eql(\"RECHAZADO\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipoDocumento\": \"CC\",\n  \"numeroDocumento\": \"1010101010\",\n  \"nombres\": \"Juan\",\n  \"apellidos\": \"Pérez\",\n  \"correo\": \"juan.perez@example.com\",\n  \"celular\": \"3001234567\",\n  \"montoSolicitado\": 15000000,\n  \"plazoMeses\": 36,\n  \"ingresosMensuales\": 4000000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrlMotor}}/api/solicitudes",
+              "host": [
+                "{{baseUrlMotor}}"
+              ],
+              "path": [
+                "api",
+                "solicitudes"
+              ]
+            },
+            "description": "Documento de la lista negra de application.yml: rechazo temprano sin tasa ni siguiente paso."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Errores y degradaciones",
+      "description": "La entrada invalida del contrato de errores y el buro caido del enunciado.",
+      "item": [
+        {
+          "name": "5. Entrada invalida - los nueve campos mal",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 400\", () => pm.response.to.have.status(400));",
+                  "",
+                  "const cuerpo = pm.response.json();",
+                  "",
+                  "pm.test(\"Mensaje del contrato de errores\", () => {",
+                  "    pm.expect(cuerpo.message).to.eql(\"Error en los datos proporcionados\");",
+                  "});",
+                  "",
+                  "pm.test(\"Los NUEVE campos rechazados, no solo el primero\", () => {",
+                  "    const campos = cuerpo.errors.map(e => e.field).sort();",
+                  "    pm.expect(campos).to.eql([\"apellidos\", \"celular\", \"correo\", \"ingresosMensuales\",",
+                  "        \"montoSolicitado\", \"nombres\", \"numeroDocumento\", \"plazoMeses\", \"tipoDocumento\"]);",
+                  "});",
+                  "",
+                  "pm.test(\"Todos los errores vienen del body\", () => {",
+                  "    cuerpo.errors.forEach(e => pm.expect(e.location).to.eql(\"body\"));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"numeroDocumento\": \"12\",\n  \"correo\": \"correo-sin-arroba\",\n  \"celular\": \"1234567890\",\n  \"montoSolicitado\": 500000,\n  \"plazoMeses\": 18,\n  \"ingresosMensuales\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrlMotor}}/api/solicitudes",
+              "host": [
+                "{{baseUrlMotor}}"
+              ],
+              "path": [
+                "api",
+                "solicitudes"
+              ]
+            },
+            "description": "Cuatro campos ausentes y cinco fuera de lo permitido: el 400 reporta TODOS en errors[], con su mensaje y location=body."
+          }
+        },
+        {
+          "name": "6. Buro caido - documento reservado 0000000000",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"El buro caido responde 200, nunca un 5xx\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const cuerpo = pm.response.json();",
+                  "",
+                  "pm.test(\"Estado PENDIENTE_REVISION\", () => pm.expect(cuerpo.estado).to.eql(\"PENDIENTE_REVISION\"));",
+                  "",
+                  "pm.test(\"Sin score: no hubo informe\", () => {",
+                  "    pm.expect(cuerpo.evaluacion).to.not.have.property(\"scoreBureau\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipoDocumento\": \"CC\",\n  \"numeroDocumento\": \"0000000000\",\n  \"nombres\": \"Juan\",\n  \"apellidos\": \"Pérez\",\n  \"correo\": \"juan.perez@example.com\",\n  \"celular\": \"3001234567\",\n  \"montoSolicitado\": 15000000,\n  \"plazoMeses\": 36,\n  \"ingresosMensuales\": 4000000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrlMotor}}/api/solicitudes",
+              "host": [
+                "{{baseUrlMotor}}"
+              ],
+              "path": [
+                "api",
+                "solicitudes"
+              ]
+            },
+            "description": "El buro tarda ~10 s; el motor agota el timeout, reintenta con backoff y responde 200 con PENDIENTE_REVISION. Tarda a proposito."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Consulta de estado",
+      "description": "Corridas despues de radicar, consultan el estado de los mismos documentos de las peticiones 1-6: el runner cuenta el flujo completo del enunciado, de la radicacion a la consulta. Cierra con el documento sin solicitudes (200 y lista vacia) y el tipo invalido (400 con location=path).",
+      "item": [
+        {
+          "name": "7. Estado del documento aprobado - CC 1234567892",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const solicitudes = pm.response.json();",
+                  "",
+                  "pm.test(\"Lista con al menos la solicitud radicada en esta corrida\", () => {",
+                  "    pm.expect(solicitudes).to.be.an(\"array\").that.is.not.empty;",
+                  "});",
+                  "",
+                  "pm.test(\"Cada elemento trae el sobre y las cifras\", () => {",
+                  "    solicitudes.forEach(s => {",
+                  "        pm.expect(s.idSolicitud).to.match(/^SOL-\\d{8}-\\d{3}$/);",
+                  "        pm.expect(s).to.include.keys(\"fechaCreacion\", \"estado\", \"montoSolicitado\", \"plazoMeses\");",
+                  "    });",
+                  "});",
+                  "",
+                  "pm.test(\"Ordenada de la mas reciente a la mas antigua\", () => {",
+                  "    const fechas = solicitudes.map(s => s.fechaCreacion);",
+                  "    pm.expect(fechas).to.eql([...fechas].sort().reverse());",
+                  "});",
+                  "",
+                  "pm.test(\"La mas reciente es la de esta corrida: APROBADO\", () => {",
+                  "    pm.expect(solicitudes[0].estado).to.eql(\"APROBADO\");",
+                  "    pm.expect(solicitudes[0].tasaEstimada).to.eql(1.2);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrlMotor}}/api/solicitudes/CC/1234567892",
+              "host": [
+                "{{baseUrlMotor}}"
+              ],
+              "path": [
+                "api",
+                "solicitudes",
+                "CC",
+                "1234567892"
+              ]
+            },
+            "description": "Consulta las solicitudes que la peticion 1 radico: la mas reciente debe estar APROBADO con su tasa sellada."
+          }
+        },
+        {
+          "name": "8. Estado del documento preaprobado - CC 1234567890",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const solicitudes = pm.response.json();",
+                  "",
+                  "pm.test(\"Lista con al menos la solicitud radicada en esta corrida\", () => {",
+                  "    pm.expect(solicitudes).to.be.an(\"array\").that.is.not.empty;",
+                  "});",
+                  "",
+                  "pm.test(\"Cada elemento trae el sobre y las cifras\", () => {",
+                  "    solicitudes.forEach(s => {",
+                  "        pm.expect(s.idSolicitud).to.match(/^SOL-\\d{8}-\\d{3}$/);",
+                  "        pm.expect(s).to.include.keys(\"fechaCreacion\", \"estado\", \"montoSolicitado\", \"plazoMeses\");",
+                  "    });",
+                  "});",
+                  "",
+                  "pm.test(\"Ordenada de la mas reciente a la mas antigua\", () => {",
+                  "    const fechas = solicitudes.map(s => s.fechaCreacion);",
+                  "    pm.expect(fechas).to.eql([...fechas].sort().reverse());",
+                  "});",
+                  "",
+                  "pm.test(\"La mas reciente es la de esta corrida: PREAPROBADO\", () => {",
+                  "    pm.expect(solicitudes[0].estado).to.eql(\"PREAPROBADO\");",
+                  "    pm.expect(solicitudes[0].tasaEstimada).to.eql(1.8);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrlMotor}}/api/solicitudes/CC/1234567890",
+              "host": [
+                "{{baseUrlMotor}}"
+              ],
+              "path": [
+                "api",
+                "solicitudes",
+                "CC",
+                "1234567890"
+              ]
+            },
+            "description": "Consulta el documento del ejemplo del enunciado, radicado por la peticion 2. En el perfil dev tambien lista las filas sembradas por db/sql/02-data.sql."
+          }
+        },
+        {
+          "name": "9. Estado del documento rechazado - CC 1234567891",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const solicitudes = pm.response.json();",
+                  "",
+                  "pm.test(\"Lista con al menos la solicitud radicada en esta corrida\", () => {",
+                  "    pm.expect(solicitudes).to.be.an(\"array\").that.is.not.empty;",
+                  "});",
+                  "",
+                  "pm.test(\"Cada elemento trae el sobre y las cifras\", () => {",
+                  "    solicitudes.forEach(s => {",
+                  "        pm.expect(s.idSolicitud).to.match(/^SOL-\\d{8}-\\d{3}$/);",
+                  "        pm.expect(s).to.include.keys(\"fechaCreacion\", \"estado\", \"montoSolicitado\", \"plazoMeses\");",
+                  "    });",
+                  "});",
+                  "",
+                  "pm.test(\"Ordenada de la mas reciente a la mas antigua\", () => {",
+                  "    const fechas = solicitudes.map(s => s.fechaCreacion);",
+                  "    pm.expect(fechas).to.eql([...fechas].sort().reverse());",
+                  "});",
+                  "",
+                  "pm.test(\"La mas reciente es la de esta corrida: RECHAZADO\", () => {",
+                  "    pm.expect(solicitudes[0].estado).to.eql(\"RECHAZADO\");",
+                  "    pm.expect(solicitudes[0]).to.not.have.property(\"tasaEstimada\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrlMotor}}/api/solicitudes/CC/1234567891",
+              "host": [
+                "{{baseUrlMotor}}"
+              ],
+              "path": [
+                "api",
+                "solicitudes",
+                "CC",
+                "1234567891"
+              ]
+            },
+            "description": "Consulta el documento que la peticion 3 dejo RECHAZADO: sin oferta no viaja tasaEstimada."
+          }
+        },
+        {
+          "name": "10. Estado del documento bloqueado - CC 1010101010",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const solicitudes = pm.response.json();",
+                  "",
+                  "pm.test(\"Lista con al menos la solicitud radicada en esta corrida\", () => {",
+                  "    pm.expect(solicitudes).to.be.an(\"array\").that.is.not.empty;",
+                  "});",
+                  "",
+                  "pm.test(\"Cada elemento trae el sobre y las cifras\", () => {",
+                  "    solicitudes.forEach(s => {",
+                  "        pm.expect(s.idSolicitud).to.match(/^SOL-\\d{8}-\\d{3}$/);",
+                  "        pm.expect(s).to.include.keys(\"fechaCreacion\", \"estado\", \"montoSolicitado\", \"plazoMeses\");",
+                  "    });",
+                  "});",
+                  "",
+                  "pm.test(\"Ordenada de la mas reciente a la mas antigua\", () => {",
+                  "    const fechas = solicitudes.map(s => s.fechaCreacion);",
+                  "    pm.expect(fechas).to.eql([...fechas].sort().reverse());",
+                  "});",
+                  "",
+                  "pm.test(\"La mas reciente es la de esta corrida: RECHAZADO_FRAUDE\", () => {",
+                  "    pm.expect(solicitudes[0].estado).to.eql(\"RECHAZADO_FRAUDE\");",
+                  "    pm.expect(solicitudes[0]).to.not.have.property(\"tasaEstimada\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrlMotor}}/api/solicitudes/CC/1010101010",
+              "host": [
+                "{{baseUrlMotor}}"
+              ],
+              "path": [
+                "api",
+                "solicitudes",
+                "CC",
+                "1010101010"
+              ]
+            },
+            "description": "Consulta el documento que la peticion 4 dejo RECHAZADO_FRAUDE."
+          }
+        },
+        {
+          "name": "11. Estado del documento del buro caido - CC 0000000000",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const solicitudes = pm.response.json();",
+                  "",
+                  "pm.test(\"Lista con al menos la solicitud radicada en esta corrida\", () => {",
+                  "    pm.expect(solicitudes).to.be.an(\"array\").that.is.not.empty;",
+                  "});",
+                  "",
+                  "pm.test(\"Cada elemento trae el sobre y las cifras\", () => {",
+                  "    solicitudes.forEach(s => {",
+                  "        pm.expect(s.idSolicitud).to.match(/^SOL-\\d{8}-\\d{3}$/);",
+                  "        pm.expect(s).to.include.keys(\"fechaCreacion\", \"estado\", \"montoSolicitado\", \"plazoMeses\");",
+                  "    });",
+                  "});",
+                  "",
+                  "pm.test(\"Ordenada de la mas reciente a la mas antigua\", () => {",
+                  "    const fechas = solicitudes.map(s => s.fechaCreacion);",
+                  "    pm.expect(fechas).to.eql([...fechas].sort().reverse());",
+                  "});",
+                  "",
+                  "pm.test(\"La mas reciente es la de esta corrida: PENDIENTE_REVISION\", () => {",
+                  "    pm.expect(solicitudes[0].estado).to.eql(\"PENDIENTE_REVISION\");",
+                  "    pm.expect(solicitudes[0]).to.not.have.property(\"tasaEstimada\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrlMotor}}/api/solicitudes/CC/0000000000",
+              "host": [
+                "{{baseUrlMotor}}"
+              ],
+              "path": [
+                "api",
+                "solicitudes",
+                "CC",
+                "0000000000"
+              ]
+            },
+            "description": "Consulta el documento que la peticion 6 dejo PENDIENTE_REVISION tras el fallback."
+          }
+        },
+        {
+          "name": "12. Documento sin solicitudes - lista vacia con 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200, no 404\", () => pm.response.to.have.status(200));",
+                  "",
+                  "pm.test(\"La lista llega vacia\", () => {",
+                  "    pm.expect(pm.response.json()).to.eql([]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrlMotor}}/api/solicitudes/CC/999999999",
+              "host": [
+                "{{baseUrlMotor}}"
+              ],
+              "path": [
+                "api",
+                "solicitudes",
+                "CC",
+                "999999999"
+              ]
+            },
+            "description": "Un documento que nunca ha radicado no es un error: 200 con [], nunca 404."
+          }
+        },
+        {
+          "name": "13. Tipo de documento invalido - 400 en la ruta",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 400\", () => pm.response.to.have.status(400));",
+                  "",
+                  "const cuerpo = pm.response.json();",
+                  "",
+                  "pm.test(\"El error senala el tipo de documento y viene de la ruta\", () => {",
+                  "    pm.expect(cuerpo.message).to.eql(\"Error en los datos proporcionados\");",
+                  "    pm.expect(cuerpo.errors).to.have.lengthOf(1);",
+                  "    pm.expect(cuerpo.errors[0].field).to.eql(\"tipoDocumento\");",
+                  "    pm.expect(cuerpo.errors[0].location).to.eql(\"path\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrlMotor}}/api/solicitudes/XX/1234567890",
+              "host": [
+                "{{baseUrlMotor}}"
+              ],
+              "path": [
+                "api",
+                "solicitudes",
+                "XX",
+                "1234567890"
+              ]
+            },
+            "description": "XX no esta en el catalogo CC/CE/PA: la conversion de la variable de ruta falla y el contrato de errores responde location=path."
+          }
+        }
+      ]
+    }
+  ]
+}

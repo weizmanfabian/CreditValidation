@@ -1,0 +1,123 @@
+.resultado {
+  margin-top: 1.5rem;
+}
+
+.resultado-cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.resultado-cabecera h2 {
+  margin: 0;
+  font-size: 1.4rem;
+}
+
+.badge-estado {
+  padding: 0.25rem 0.75rem;
+  border-radius: 1rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.estado-aprobado {
+  background: #e3f4e6;
+  color: #1e7a33;
+}
+
+.estado-preaprobado {
+  background: #e2edfb;
+  color: #1a4fa0;
+}
+
+.estado-rechazado {
+  background: #fbe4e2;
+  color: #b3261e;
+}
+
+.estado-rechazado-fraude {
+  background: #b3261e;
+  color: #ffffff;
+}
+
+.estado-pendiente-revision {
+  background: #fdf2d9;
+  color: #8a6116;
+}
+
+.estado-desconocido {
+  background: #e4e7ec;
+  color: #40495a;
+}
+
+.radicado {
+  color: #5a6373;
+}
+
+.resultado h3 {
+  margin: 1.25rem 0 0.5rem;
+  font-size: 1.05rem;
+}
+
+.seccion {
+  margin: 0;
+}
+
+.seccion div {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid #eceef2;
+}
+
+.seccion dt {
+  color: #5a6373;
+}
+
+.seccion dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+.validaciones {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.validaciones li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.1rem 1rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid #eceef2;
+}
+
+.validacion-nombre {
+  font-weight: 600;
+}
+
+.validacion-resultado {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #40495a;
+}
+
+.validacion-detalle {
+  grid-column: 1 / -1;
+  font-size: 0.9rem;
+  color: #5a6373;
+}
+
+.sin-validaciones {
+  color: #5a6373;
+}
+
+.siguiente-paso {
+  margin-top: 1.25rem;
+  padding: 0.75rem;
+  border-radius: 0.25rem;
+  background: #f2f6fd;
+}

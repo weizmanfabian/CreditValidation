@@ -1,0 +1,144 @@
+spring:
+  application:
+    name: motordedecision
+  jpa:
+    # El esquema lo pone db/sql/01-create_schema.sql, nunca Hibernate
+    # (docs/architecture.md §6). `validate` ademas hace fallar el arranque si
+    # una entidad se desalinea del script, que es justo lo que se quiere ver.
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+
+server:
+  port: 8080
+
+buro:
+  # El motor no sabe donde vive el buro: se lo dice la configuracion
+  # (docs/architecture.md §6). El puerto 8081 es el del modulo `buro`.
+  url: http://localhost:8081
+  # El buro del enunciado no falla para el documento del servicio caido: tarda
+  # unos diez segundos. Quien pone el limite es el cliente, y por eso la espera
+  # de lectura esta muy por debajo de ese retardo.
+  tiempo-espera-conexion: 2s
+  tiempo-espera-lectura: 2s
+
+reglas:
+  validacion:
+    # Datos de negocio, no del codigo: los umbrales y la lista de bloqueados se
+    # ajustan sin recompilar (docs/conventions.md §9).
+    #
+    # El documento 1010101010 es el que usan los datos de arranque de
+    # db/sql/02-data.sql para la solicitud RECHAZADO_FRAUDE; los otros tres
+    # completan la "lista negra de 3-5 documentos" que pide el enunciado. Van
+    # entre comillas para que se enlacen como texto y no como numero.
+    documentos-bloqueados:
+      - "1010101010"
+      - "1111111111"
+      - "2020202020"
+      - "3333333333"
+    # Minimo por debajo del cual la solicitud ya no es viable de ninguna forma.
+    # Los umbrales que separan un aprobado de un preaprobado son otra cosa y
+    # viven en las reglas de decision (feature 11).
+    score-minimo: 600
+    # El multiplo mas permisivo de la tabla del enunciado: por encima de ocho
+    # veces los ingresos ninguna decision posterior podria aprobar el credito.
+    multiplo-maximo-de-ingresos: 8
+  decision:
+    # Los numeros de la tabla de decision del enunciado (lineas 78-84). El orden
+    # de las reglas no esta aqui: lo fija la lista de
+    # ConfiguracionReglasDeDecision, porque es codigo y no un dato de negocio
+    # (D-044).
+    #
+    # Nombre de la validacion cuyo rechazo es fraude y no un rechazo corriente.
+    # Tiene que coincidir con el que publica ValidacionIdentidad, que es el
+    # mismo que viaja a la respuesta.
+    validacion-de-identidad: "Identidad"
+    aprobado:
+      score-minimo: 700
+      multiplo-maximo-de-ingresos: 8
+    preaprobado:
+      # Ojo: 600 aparece dos veces en el enunciado y no es el mismo numero. El
+      # de arriba es el corte de la cadena, por debajo del cual la solicitud se
+      # rechaza; este es el piso de la fila PREAPROBADO. Coinciden hoy y podrian
+      # dejar de coincidir manana.
+      score-minimo: 600
+      multiplo-maximo-de-ingresos: 5
+
+respuesta:
+  # Lo que la respuesta dice en cada estado. La ausencia de un estado significa
+  # algo: sin tasa no hay oferta, y sin texto no hay siguiente paso. Ahi esta
+  # escrita, como dato, la regla del rechazo temprano del enunciado (linea 91):
+  # RECHAZADO_FRAUDE no aparece en ninguno de los dos mapas.
+  #
+  # Tasa mensual ofrecida. El enunciado la exhibe en 1.2 para el caso aprobado y
+  # nunca dice como se calcula: es una tasa por estado, no un modelo de riesgo
+  # (D-045). El preaprobado paga mas porque su estudio quedo a medias.
+  tasa-estimada-por-estado:
+    APROBADO: 1.2
+    PREAPROBADO: 1.8
+  # Textos del siguiente paso (D-046). El de APROBADO es literal del enunciado
+  # (linea 122); los otros tres los redacta quien atiende al cliente.
+  siguiente-paso-por-estado:
+    APROBADO: "Se enviará contrato al correo registrado en 24 horas"
+    PREAPROBADO: "Adjunte los documentos adicionales solicitados para completar el estudio"
+    RECHAZADO: "Puede volver a solicitar el crédito dentro de seis meses"
+    PENDIENTE_REVISION: "Un analista revisará la solicitud y le informaremos el resultado"
+
+resilience4j:
+  retry:
+    instances:
+      buro:
+        # Backoff exponencial con jitter, obligatorio en todo reintento contra
+        # el buro (docs/conventions.md §7). El jitter separa los reintentos de
+        # clientes distintos para que no vuelvan todos en el mismo instante.
+        max-attempts: 3
+        wait-duration: 300ms
+        enable-exponential-backoff: true
+        exponential-backoff-multiplier: 2
+        enable-randomized-wait: true
+        randomized-wait-factor: 0.5
+        # El circuito abierto no se reintenta: insistir contra un circuito
+        # abierto es justo lo que el circuito existe para evitar.
+        ignore-exceptions:
+          - io.github.resilience4j.circuitbreaker.CallNotPermittedException
+  circuitbreaker:
+    instances:
+      buro:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10
+        # Con menos llamadas que esto el circuito no juzga: un unico fallo
+        # aislado no puede dejar al motor sin buro.
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
+
+---
+# Perfil de desarrollo: el que se activa desde el IDE.
+#
+# Requiere `docker compose up -d` dentro de motordedecision/. Los valores estan
+# escritos aqui a proposito, sin `.env` (docs/decisions.md D-024), y tienen que
+# cuadrar con motordedecision/docker-compose.yml: base, usuario y contrasena
+# `motordedecision`, y el puerto 5440 que el compose publica en el host.
+spring:
+  config:
+    activate:
+      on-profile: dev
+  datasource:
+    url: jdbc:postgresql://localhost:5440/motordedecision
+    username: motordedecision
+    password: motordedecision
+
+---
+# Perfil de contenedor: la aplicacion corre dentro del compose de la raiz
+# (feature 19) y alcanza a PostgreSQL por el nombre del servicio, `db`, en su
+# puerto interno 5432 -- no por el 5440, que solo existe en el host.
+spring:
+  config:
+    activate:
+      on-profile: docker
+  datasource:
+    url: jdbc:postgresql://db:5432/motordedecision
+    username: motordedecision
+    password: motordedecision
