@@ -64,6 +64,26 @@ reglas:
       score-minimo: 600
       multiplo-maximo-de-ingresos: 5
 
+respuesta:
+  # Lo que la respuesta dice en cada estado. La ausencia de un estado significa
+  # algo: sin tasa no hay oferta, y sin texto no hay siguiente paso. Ahi esta
+  # escrita, como dato, la regla del rechazo temprano del enunciado (linea 91):
+  # RECHAZADO_FRAUDE no aparece en ninguno de los dos mapas.
+  #
+  # Tasa mensual ofrecida. El enunciado la exhibe en 1.2 para el caso aprobado y
+  # nunca dice como se calcula: es una tasa por estado, no un modelo de riesgo
+  # (D-045). El preaprobado paga mas porque su estudio quedo a medias.
+  tasa-estimada-por-estado:
+    APROBADO: 1.2
+    PREAPROBADO: 1.8
+  # Textos del siguiente paso (D-046). El de APROBADO es literal del enunciado
+  # (linea 122); los otros tres los redacta quien atiende al cliente.
+  siguiente-paso-por-estado:
+    APROBADO: "Se enviará contrato al correo registrado en 24 horas"
+    PREAPROBADO: "Adjunte los documentos adicionales solicitados para completar el estudio"
+    RECHAZADO: "Puede volver a solicitar el crédito dentro de seis meses"
+    PENDIENTE_REVISION: "Un analista revisará la solicitud y le informaremos el resultado"
+
 resilience4j:
   retry:
     instances:
