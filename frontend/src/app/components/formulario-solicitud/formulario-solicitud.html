@@ -86,7 +86,20 @@
     </div>
 
     @if (errorEnvio()) {
-      <p class="error-envio" role="alert">No fue posible radicar la solicitud. Intenta de nuevo.</p>
+      <p class="aviso aviso-error error-envio" role="alert">No fue posible radicar la solicitud. Intenta de nuevo.</p>
+    }
+
+    @if (erroresDelMotor(); as erroresDelMotor) {
+      <div class="aviso aviso-error errores-del-motor" role="alert">
+        <p class="aviso-titulo">{{ erroresDelMotor.mensaje }}</p>
+        @if (erroresDelMotor.generales.length > 0) {
+          <ul class="errores-generales">
+            @for (mensaje of erroresDelMotor.generales; track mensaje) {
+              <li>{{ mensaje }}</li>
+            }
+          </ul>
+        }
+      </div>
     }
 
     <button type="submit" [disabled]="formulario.invalid || enviando()">
@@ -97,5 +110,13 @@
       }
     </button>
 
+    @if (enviando()) {
+      <p class="aviso aviso-carga" role="status">Radicando la solicitud, espera un momento…</p>
+    }
+
   </form>
 </section>
+
+@if (resultado(); as respuesta) {
+  <app-resultado-solicitud [resultado]="respuesta" />
+}

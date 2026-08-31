@@ -1,0 +1,52 @@
+<section class="tarjeta resultado" aria-live="polite">
+
+  <header class="resultado-cabecera">
+    <h2>Resultado de la solicitud</h2>
+    <span class="badge-estado" [class]="obtenerClaseEstado()">{{ resultado().estado }}</span>
+  </header>
+
+  <p class="radicado">
+    Radicado <strong>{{ resultado().idSolicitud }}</strong>
+    el {{ resultado().fechaCreacion | date: 'dd/MM/yyyy HH:mm' }}
+  </p>
+
+  <h3>Solicitante</h3>
+  <dl class="seccion">
+    <div><dt>Nombre</dt><dd>{{ resultado().solicitante.nombre }}</dd></div>
+    <div><dt>Documento</dt><dd>{{ resultado().solicitante.documento }}</dd></div>
+  </dl>
+
+  <h3>Detalle financiero</h3>
+  <dl class="seccion">
+    <div><dt>Monto solicitado</dt><dd>$ {{ resultado().detalle.montoSolicitado | number }}</dd></div>
+    <div><dt>Plazo</dt><dd>{{ resultado().detalle.plazoMeses }} meses</dd></div>
+    @if (resultado().detalle.tasaEstimada != null) {
+      <div><dt>Tasa estimada</dt><dd>{{ resultado().detalle.tasaEstimada }}% mensual</dd></div>
+    }
+  </dl>
+
+  <h3>Evaluación</h3>
+  @if (resultado().evaluacion.scoreBureau != null) {
+    <dl class="seccion">
+      <div><dt>Score del buró</dt><dd>{{ resultado().evaluacion.scoreBureau }}</dd></div>
+    </dl>
+  }
+  @if (resultado().evaluacion.validaciones.length > 0) {
+    <ul class="validaciones">
+      @for (validacion of resultado().evaluacion.validaciones; track validacion.nombre) {
+        <li>
+          <span class="validacion-nombre">{{ validacion.nombre }}</span>
+          <span class="validacion-resultado">{{ validacion.resultado }}</span>
+          <span class="validacion-detalle">{{ validacion.detalle }}</span>
+        </li>
+      }
+    </ul>
+  } @else {
+    <p class="sin-validaciones">No se registraron validaciones para esta solicitud.</p>
+  }
+
+  @if (resultado().siguientePaso; as siguientePaso) {
+    <p class="siguiente-paso"><strong>Siguiente paso:</strong> {{ siguientePaso }}</p>
+  }
+
+</section>

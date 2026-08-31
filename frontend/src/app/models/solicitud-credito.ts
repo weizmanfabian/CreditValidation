@@ -17,10 +17,14 @@ export interface SeccionSolicitante {
   documento: string;
 }
 
+/**
+ * El motor serializa con NON_NULL: la tasa, el score y el siguiente paso no
+ * viajan cuando no aplican, asi que aqui son opcionales, no nulos.
+ */
 export interface SeccionDetalleFinanciero {
   montoSolicitado: number;
   plazoMeses: number;
-  tasaEstimada: number | null;
+  tasaEstimada?: number | null;
 }
 
 export interface ValidacionRealizada {
@@ -30,7 +34,7 @@ export interface ValidacionRealizada {
 }
 
 export interface SeccionEvaluacion {
-  scoreBureau: number | null;
+  scoreBureau?: number | null;
   validaciones: ValidacionRealizada[];
 }
 
@@ -41,5 +45,5 @@ export interface SolicitudCreditoResponse {
   solicitante: SeccionSolicitante;
   detalle: SeccionDetalleFinanciero;
   evaluacion: SeccionEvaluacion;
-  siguientePaso: string | null;
+  siguientePaso?: string | null;
 }

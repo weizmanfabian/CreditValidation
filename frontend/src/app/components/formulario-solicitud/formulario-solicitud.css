@@ -42,9 +42,35 @@
   font-size: 0.85rem;
 }
 
-.error-envio {
+.aviso {
+  margin: 1rem 0;
+  padding: 0.75rem;
+  border-left: 4px solid;
+  border-radius: 0.25rem;
+}
+
+.aviso-error {
+  border-color: #b3261e;
+  background: #fbe4e2;
   color: #b3261e;
   font-weight: 600;
+}
+
+.aviso-carga {
+  border-color: #1a4fa0;
+  background: #e2edfb;
+  color: #1a4fa0;
+  font-weight: 600;
+}
+
+.aviso-titulo {
+  margin: 0;
+}
+
+.errores-generales {
+  margin: 0.5rem 0 0;
+  padding-left: 1.25rem;
+  font-weight: 400;
 }
 
 button[type='submit'] {
