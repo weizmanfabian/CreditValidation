@@ -150,7 +150,7 @@ class GeneradorInformeCrediticioTest {
     }
 
     @ParameterizedTest(name = "el documento {0} se rechaza por no ser una cadena de digitos")
-    @CsvSource(nullValues = "NULO", value = {"NULO", "''", "12345A789", "1234 56789"})
+    @CsvSource(nullValues = "NULO", value = {"NULO", "''", "12345A789", "1234 56789", "123456A"})
     @DisplayName("Un numero de documento que no es una cadena de digitos rompe el contrato del generador")
     void generarInforme_conNumeroDocumentoInvalido_lanzaIllegalArgumentException(String numeroDocumento) {
         assertThatThrownBy(() -> generador.generarInforme(numeroDocumento))

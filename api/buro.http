@@ -1,0 +1,119 @@
+### Buró de crédito simulado — colección de pruebas manuales
+#
+# Servicio: buro/ · puerto 8081
+# Contrato: docs/prueba-tecnica-desarrollador1.md
+# Errores:  docs/error-handling.md
+#
+# Las URL salen de variables: no escribas hosts a mano en cada petición.
+# Para apuntar al compose, cambia solo @host.
+
+@host = http://localhost:8081
+@buro = {{host}}/api/buro
+
+# Documentos de prueba. La regla del mock es la paridad del último dígito.
+@documentoPar = 1234567890
+@documentoImpar = 1234567891
+@documentoServicioCaido = 0000000000
+
+
+### 1. Caso par — score alto, titular al día
+# Documento terminado en dígito par.
+# Espera 200 con score en [600,850], estado ACTIVO y reporteNegativo=false.
+# El generador es determinista: este documento devuelve siempre score 635.
+POST {{buro}}/consulta
+Content-Type: application/json
+
+{
+  "tipoDocumento": "CC",
+  "numeroDocumento": "{{documentoPar}}"
+}
+
+
+### 2. Caso impar — score bajo, titular en mora
+# Documento terminado en dígito impar.
+# Espera 200 con score en [300,550], estado EN_MORA y reporteNegativo=true.
+# Determinista: este documento devuelve siempre score 381.
+POST {{buro}}/consulta
+Content-Type: application/json
+
+{
+  "tipoDocumento": "CC",
+  "numeroDocumento": "{{documentoImpar}}"
+}
+
+
+### 3. Servicio caído — documento reservado 0000000000
+#
+# OJO: la espera es el comportamiento esperado, no un servicio colgado.
+# El buró retrasa la respuesta buro.simulacion.retardo-servicio-caido (10 s por
+# defecto) y luego responde 200 con normalidad. El timeout lo declara el cliente:
+# el motor, con un timeout más corto, caerá en su fallback y resolverá
+# PENDIENTE_REVISION.
+#
+# Termina en 0, que es par, así que sigue la regla de paridad: score 650, ACTIVO.
+POST {{buro}}/consulta
+Content-Type: application/json
+
+{
+  "tipoDocumento": "CC",
+  "numeroDocumento": "{{documentoServicioCaido}}"
+}
+
+
+### 4. Entrada inválida — número de documento no numérico
+# Espera 400 con el ErrorResponse del módulo: un elemento en errors[] con
+# field=numeroDocumento y location=body.
+POST {{buro}}/consulta
+Content-Type: application/json
+
+{
+  "tipoDocumento": "CC",
+  "numeroDocumento": "abc"
+}
+
+
+### 5. Entrada inválida — dos campos malos a la vez
+# Demuestra que se devuelven TODOS los campos rechazados, no solo el primero.
+# Espera 400 con dos elementos en errors[]: tipoDocumento y numeroDocumento,
+# ambos con location=body. El orden lo fija el validador y no está garantizado.
+POST {{buro}}/consulta
+Content-Type: application/json
+
+{
+  "tipoDocumento": null,
+  "numeroDocumento": "abc"
+}
+
+
+### 6. Entrada inválida — tipo de documento fuera del catálogo
+# El catálogo es CC, CE o PA. Un valor fuera de él falla al deserializar y lo
+# traduce el manejador de cuerpo ilegible. Espera 400, nunca un 500.
+POST {{buro}}/consulta
+Content-Type: application/json
+
+{
+  "tipoDocumento": "TI",
+  "numeroDocumento": "{{documentoPar}}"
+}
+
+
+### 7. JSON malformado — coma de más
+# Espera 400 con mensaje claro, no un 500 con traza.
+POST {{buro}}/consulta
+Content-Type: application/json
+
+{
+  "tipoDocumento": "CC",
+  "numeroDocumento": "{{documentoPar}}",
+}
+
+
+### 8. Ruta inexistente
+# Espera 404, no 500: el manejador general conserva los 4xx de Spring (D-014).
+POST {{buro}}/consultas
+Content-Type: application/json
+
+{
+  "tipoDocumento": "CC",
+  "numeroDocumento": "{{documentoPar}}"
+}

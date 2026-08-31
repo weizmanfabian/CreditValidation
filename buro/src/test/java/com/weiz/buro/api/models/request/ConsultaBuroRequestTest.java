@@ -24,6 +24,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class ConsultaBuroRequestTest {
 
     private static final String NUMERO_DOCUMENTO_VALIDO = "1234567890";
+    private static final String DOCUMENTO_SERVICIO_CAIDO = "0000000000";
     private static final String CAMPO_NUMERO_DOCUMENTO = "numeroDocumento";
     private static final String CAMPO_TIPO_DOCUMENTO = "tipoDocumento";
 
@@ -56,6 +57,24 @@ class ConsultaBuroRequestTest {
     @DisplayName("Los tres tipos de documento del enunciado se aceptan sin violaciones")
     void validar_conCadaTipoDocumentoDelCatalogo_noProduceViolaciones(TipoDocumento tipoDocumento) {
         ConsultaBuroRequest consulta = new ConsultaBuroRequest(tipoDocumento, NUMERO_DOCUMENTO_VALIDO);
+
+        Set<ConstraintViolation<ConsultaBuroRequest>> violaciones = validador.validate(consulta);
+
+        assertThat(violaciones).isEmpty();
+    }
+
+    @Test
+    @DisplayName("El catalogo de tipos de documento es exactamente CC, CE y PA")
+    void obtenerValores_delCatalogoDeTipoDocumento_devuelveSoloLosTresDelEnunciado() {
+        TipoDocumento[] tipos = TipoDocumento.values();
+
+        assertThat(tipos).containsExactly(TipoDocumento.CC, TipoDocumento.CE, TipoDocumento.PA);
+    }
+
+    @Test
+    @DisplayName("El documento 0000000000 del caso caido es una entrada valida y no la rechaza el patron")
+    void validar_conElDocumentoDelServicioCaido_noProduceViolaciones() {
+        ConsultaBuroRequest consulta = new ConsultaBuroRequest(TipoDocumento.CC, DOCUMENTO_SERVICIO_CAIDO);
 
         Set<ConstraintViolation<ConsultaBuroRequest>> violaciones = validador.validate(consulta);
 
