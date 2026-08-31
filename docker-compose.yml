@@ -1,0 +1,116 @@
+# Orquestacion completa del sistema: base de datos, buro, motor y frontend.
+#
+#   docker compose up --build
+#
+# Cuando los cuatro servicios quedan sanos, el flujo completo se recorre desde
+# el navegador en http://localhost:4200.
+#
+# El compose de motordedecision/ sigue existiendo y es otra cosa: levanta solo
+# PostgreSQL para depurar la aplicacion desde el IDE (D-024). Este es el que
+# levanta el sistema entero.
+#
+# Los valores van escritos aqui a proposito, sin `.env`: es un entorno local
+# desechable y la prueba se debe poder levantar sin pasos previos.
+
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: creditvalidation-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: motordedecision
+      POSTGRES_USER: motordedecision
+      POSTGRES_PASSWORD: motordedecision
+    ports:
+      # 5441 en el host para no chocar con el 5440 del compose de desarrollo,
+      # que puede estar levantado a la vez.
+      - "5441:5432"
+    volumes:
+      # Los scripts se ejecutan en orden alfabetico y SOLO al crear el volumen.
+      # Para volver a sembrar: docker compose down -v && docker compose up
+      - ./motordedecision/db/sql/01-create_schema.sql:/docker-entrypoint-initdb.d/01-create_schema.sql:ro
+      - ./motordedecision/db/sql/02-data.sql:/docker-entrypoint-initdb.d/02-data.sql:ro
+      - creditvalidation-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U motordedecision -d motordedecision"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  buro:
+    build:
+      context: ./buro
+      dockerfile: ../docker/buro.Dockerfile
+    container_name: creditvalidation-buro
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    healthcheck:
+      # Ninguno de los dos servicios trae actuator, asi que la sonda usa el
+      # endpoint real: un documento par responde 200 con su informe.
+      test:
+        - CMD-SHELL
+        - >-
+          wget -q -O /dev/null --header='Content-Type: application/json'
+          --post-data='{"tipoDocumento":"CC","numeroDocumento":"1234567892"}'
+          http://localhost:8081/api/buro/consulta
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+
+  motor:
+    build:
+      context: ./motordedecision
+      dockerfile: ../docker/motor.Dockerfile
+    container_name: creditvalidation-motor
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      # El perfil `docker` ya apunta a la base por el nombre del servicio; la
+      # URL del buro no vive en el perfil, asi que entra por variable de
+      # entorno (enlace relajado de Spring: BURO_URL -> buro.url).
+      BURO_URL: http://buro:8081
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+      buro:
+        condition: service_healthy
+    healthcheck:
+      # La consulta de estado de un documento sin solicitudes responde 200 con
+      # lista vacia, asi que la sonda comprueba de paso que la base responde.
+      test:
+        - CMD-SHELL
+        - wget -q -O /dev/null http://localhost:8080/api/solicitudes/CC/999999999
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: ../docker/frontend-dev.Dockerfile
+    container_name: creditvalidation-frontend
+    restart: unless-stopped
+    environment:
+      # El navegador del host no resuelve `motor`, pero el dev-server que corre
+      # dentro de esta red si: por eso las peticiones salen con ruta relativa y
+      # el proxy las reenvia (D-058).
+      MOTOR_URL: http://motor:8080
+    ports:
+      - "4200:4200"
+    depends_on:
+      motor:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:4200/"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+volumes:
+  creditvalidation-db-data:
