@@ -1,0 +1,40 @@
+# Orquestacion LOCAL del motor de decision: levanta solo PostgreSQL.
+#
+#   cd motordedecision && docker compose up -d
+#
+# Con la base arriba, la API se arranca desde el IDE (perfil `dev`) y queda
+# depurable. La dockerizacion de los tres servicios es la feature 19 y vive en
+# el compose de la raiz; este archivo es exclusivamente para desarrollo.
+#
+# Los valores van escritos aqui a proposito, sin `.env`: es un entorno local
+# desechable y la prueba se debe poder levantar sin pasos previos. Las mismas
+# credenciales estan replicadas en el perfil `dev` de `application.yml`.
+
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: motordedecision-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: motordedecision
+      POSTGRES_USER: motordedecision
+      POSTGRES_PASSWORD: motordedecision
+    ports:
+      # 5440 en el host para no chocar con un PostgreSQL ya instalado ni con
+      # otros proyectos; 5432 sigue siendo el puerto de dentro del contenedor.
+      - "5440:5432"
+    volumes:
+      # Los scripts de /docker-entrypoint-initdb.d se ejecutan en orden
+      # alfabetico y SOLO la primera vez que se crea el volumen. Para volver a
+      # sembrar: docker compose down -v && docker compose up -d
+      - ./db/sql/01-create_schema.sql:/docker-entrypoint-initdb.d/01-create_schema.sql:ro
+      - ./db/sql/02-data.sql:/docker-entrypoint-initdb.d/02-data.sql:ro
+      - motordedecision-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U motordedecision -d motordedecision"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  motordedecision-db-data:

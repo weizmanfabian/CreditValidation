@@ -1,0 +1,27 @@
+# Perfil `test`: H2 en memoria.
+#
+# Se superpone a src/main/resources/application.yml, que sigue siendo visible
+# en el classpath de pruebas -- por eso este archivo NO se llama
+# `application.yml`: eclipsarlo dejaria sin poder comprobar los perfiles `dev`
+# y `docker`, que es justo lo que hace ConfiguracionPerfilesTest.
+#
+# Todo test que levante contexto declara @ActiveProfiles("test"). Si alguien lo
+# olvida, no hay origen de datos y el contexto falla en voz alta: nunca se cae
+# de vuelta al PostgreSQL del compose (docs/verification.md §3).
+spring:
+  application:
+    name: motordedecision-test
+  datasource:
+    # MODE=PostgreSQL acerca el dialecto de H2 al de produccion; DB_CLOSE_DELAY
+    # mantiene viva la base mientras dure el contexto de Spring.
+    url: jdbc:h2:mem:motordedecision;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    # Unico sitio donde Hibernate genera el esquema. En `dev` y en `docker`
+    # manda db/sql/01-create_schema.sql, que es PostgreSQL puro y no corre
+    # sobre H2; aqui las entidades son la fuente y cada contexto arranca con
+    # una base limpia.
+    hibernate:
+      ddl-auto: create-drop

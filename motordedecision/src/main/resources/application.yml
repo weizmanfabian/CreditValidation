@@ -1,0 +1,47 @@
+spring:
+  application:
+    name: motordedecision
+  jpa:
+    # El esquema lo pone db/sql/01-create_schema.sql, nunca Hibernate
+    # (docs/architecture.md §6). `validate` ademas hace fallar el arranque si
+    # una entidad se desalinea del script, que es justo lo que se quiere ver.
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+
+server:
+  port: 8080
+
+buro:
+  # El motor no sabe donde vive el buro: se lo dice la configuracion
+  # (docs/architecture.md §6). El puerto 8081 es el del modulo `buro`.
+  url: http://localhost:8081
+
+---
+# Perfil de desarrollo: el que se activa desde el IDE.
+#
+# Requiere `docker compose up -d` dentro de motordedecision/. Los valores estan
+# escritos aqui a proposito, sin `.env` (docs/decisions.md D-024), y tienen que
+# cuadrar con motordedecision/docker-compose.yml: base, usuario y contrasena
+# `motordedecision`, y el puerto 5440 que el compose publica en el host.
+spring:
+  config:
+    activate:
+      on-profile: dev
+  datasource:
+    url: jdbc:postgresql://localhost:5440/motordedecision
+    username: motordedecision
+    password: motordedecision
+
+---
+# Perfil de contenedor: la aplicacion corre dentro del compose de la raiz
+# (feature 19) y alcanza a PostgreSQL por el nombre del servicio, `db`, en su
+# puerto interno 5432 -- no por el 5440, que solo existe en el host.
+spring:
+  config:
+    activate:
+      on-profile: docker
+  datasource:
+    url: jdbc:postgresql://db:5432/motordedecision
+    username: motordedecision
+    password: motordedecision
