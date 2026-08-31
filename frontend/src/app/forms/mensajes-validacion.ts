@@ -1,4 +1,4 @@
-import { SolicitudCreditoRequest } from '../../models/solicitud-credito';
+import { SolicitudCreditoRequest } from '../models/solicitud-credito';
 
 export type NombreCampoSolicitud = keyof SolicitudCreditoRequest;
 

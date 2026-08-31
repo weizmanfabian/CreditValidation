@@ -1,1 +1,129 @@
-/* You can add global styles to this file, and also import other style files */
+/*
+ * Estilos compartidos por las dos pantallas: la tarjeta, los campos de
+ * formulario, los avisos y el distintivo de estado. Viven aquí, y no en el CSS
+ * de un componente, porque los estilos de componente en Angular están acotados
+ * a su propia plantilla y no alcanzan a la del vecino.
+ */
+
+.tarjeta {
+  max-width: 34rem;
+  margin: 2rem auto;
+  padding: 2rem;
+  border: 1px solid #d0d4dc;
+  border-radius: 0.5rem;
+  background: #ffffff;
+}
+
+.tarjeta h2 {
+  margin-top: 0;
+  font-size: 1.4rem;
+}
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 1rem;
+}
+
+.campo label {
+  margin-bottom: 0.25rem;
+  font-weight: 600;
+}
+
+.campo input,
+.campo select {
+  padding: 0.5rem;
+  border: 1px solid #b8bec9;
+  border-radius: 0.25rem;
+  font: inherit;
+}
+
+.campo input.ng-invalid.ng-touched,
+.campo select.ng-invalid.ng-touched {
+  border-color: #b3261e;
+}
+
+.error-campo {
+  margin: 0.25rem 0 0;
+  color: #b3261e;
+  font-size: 0.85rem;
+}
+
+.aviso {
+  margin: 1rem 0;
+  padding: 0.75rem;
+  border-left: 4px solid;
+  border-radius: 0.25rem;
+}
+
+.aviso-error {
+  border-color: #b3261e;
+  background: #fbe4e2;
+  color: #b3261e;
+  font-weight: 600;
+}
+
+.aviso-carga {
+  border-color: #1a4fa0;
+  background: #e2edfb;
+  color: #1a4fa0;
+  font-weight: 600;
+}
+
+.aviso-titulo {
+  margin: 0;
+}
+
+button[type='submit'] {
+  padding: 0.6rem 1.5rem;
+  border: none;
+  border-radius: 0.25rem;
+  background: #1a4fa0;
+  color: #ffffff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button[type='submit']:disabled {
+  background: #9aa4b5;
+  cursor: not-allowed;
+}
+
+.badge-estado {
+  padding: 0.25rem 0.75rem;
+  border-radius: 1rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.estado-aprobado {
+  background: #e3f4e6;
+  color: #1e7a33;
+}
+
+.estado-preaprobado {
+  background: #e2edfb;
+  color: #1a4fa0;
+}
+
+.estado-rechazado {
+  background: #fbe4e2;
+  color: #b3261e;
+}
+
+.estado-rechazado-fraude {
+  background: #b3261e;
+  color: #ffffff;
+}
+
+.estado-pendiente-revision {
+  background: #fdf2d9;
+  color: #8a6116;
+}
+
+.estado-desconocido {
+  background: #e4e7ec;
+  color: #40495a;
+}

@@ -9,7 +9,8 @@ import { PLAZOS_PERMITIDOS, REGLAS_SOLICITUD_CREDITO } from '../../models/reglas
 import { SolicitudCreditoService } from '../../services/solicitud-credito.service';
 import { validarPlazoPermitido } from '../../validators/plazo-permitido';
 import { ResultadoSolicitud } from '../resultado-solicitud/resultado-solicitud';
-import { MENSAJES_VALIDACION, NombreCampoSolicitud } from './mensajes-validacion';
+import { obtenerMensajeDeError } from '../../forms/mensaje-de-error';
+import { MENSAJES_VALIDACION, NombreCampoSolicitud } from '../../forms/mensajes-validacion';
 
 export interface ValorFormularioSolicitud {
   tipoDocumento: TipoDocumento | null;
@@ -142,13 +143,7 @@ export class FormularioSolicitud {
   }
 
   private obtenerErrorLocal(nombreCampo: NombreCampoSolicitud): string | null {
-    const control = this.formulario.controls[nombreCampo];
-    if (control.valid || !(control.touched || control.dirty)) {
-      return null;
-    }
-    const mensajesDelCampo = MENSAJES_VALIDACION[nombreCampo];
-    const claveError = Object.keys(control.errors ?? {}).find((clave) => clave in mensajesDelCampo);
-    return claveError === undefined ? null : mensajesDelCampo[claveError];
+    return obtenerMensajeDeError(this.formulario.controls[nombreCampo], MENSAJES_VALIDACION[nombreCampo]);
   }
 
   private radicarSolicitud(solicitud: SolicitudCreditoRequest): void {
