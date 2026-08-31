@@ -14,8 +14,8 @@ package com.weiz.motordedecision.domain.validacion;
 public class ValidacionScoreCrediticio implements ValidacionDependienteDelBuro {
 
     private static final String NOMBRE = "Score";
-    private static final String PLANTILLA_APROBADO = "Score %d cumple el minimo de %d";
-    private static final String PLANTILLA_RECHAZADO = "Score %d por debajo del minimo de %d";
+    private static final String PLANTILLA_APROBADO = "Score %d >= %d";
+    private static final String PLANTILLA_RECHAZADO = "Score %d < %d";
 
     private final int scoreMinimo;
 

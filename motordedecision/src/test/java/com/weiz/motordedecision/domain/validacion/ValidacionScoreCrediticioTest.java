@@ -43,7 +43,7 @@ class ValidacionScoreCrediticioTest {
 
         Veredicto veredicto = validacion.validar(solicitud);
 
-        assertThat(veredicto.detalle()).isEqualTo("Score 420 por debajo del minimo de 600");
+        assertThat(veredicto.detalle()).isEqualTo("Score 420 < 600");
     }
 
     @Test
