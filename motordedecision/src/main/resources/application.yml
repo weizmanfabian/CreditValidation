@@ -16,6 +16,41 @@ buro:
   # El motor no sabe donde vive el buro: se lo dice la configuracion
   # (docs/architecture.md §6). El puerto 8081 es el del modulo `buro`.
   url: http://localhost:8081
+  # El buro del enunciado no falla para el documento del servicio caido: tarda
+  # unos diez segundos. Quien pone el limite es el cliente, y por eso la espera
+  # de lectura esta muy por debajo de ese retardo.
+  tiempo-espera-conexion: 2s
+  tiempo-espera-lectura: 2s
+
+resilience4j:
+  retry:
+    instances:
+      buro:
+        # Backoff exponencial con jitter, obligatorio en todo reintento contra
+        # el buro (docs/conventions.md §7). El jitter separa los reintentos de
+        # clientes distintos para que no vuelvan todos en el mismo instante.
+        max-attempts: 3
+        wait-duration: 300ms
+        enable-exponential-backoff: true
+        exponential-backoff-multiplier: 2
+        enable-randomized-wait: true
+        randomized-wait-factor: 0.5
+        # El circuito abierto no se reintenta: insistir contra un circuito
+        # abierto es justo lo que el circuito existe para evitar.
+        ignore-exceptions:
+          - io.github.resilience4j.circuitbreaker.CallNotPermittedException
+  circuitbreaker:
+    instances:
+      buro:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10
+        # Con menos llamadas que esto el circuito no juzga: un unico fallo
+        # aislado no puede dejar al motor sin buro.
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
 
 ---
 # Perfil de desarrollo: el que se activa desde el IDE.
