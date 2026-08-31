@@ -22,6 +22,28 @@ buro:
   tiempo-espera-conexion: 2s
   tiempo-espera-lectura: 2s
 
+reglas:
+  validacion:
+    # Datos de negocio, no del codigo: los umbrales y la lista de bloqueados se
+    # ajustan sin recompilar (docs/conventions.md §9).
+    #
+    # El documento 1010101010 es el que usan los datos de arranque de
+    # db/sql/02-data.sql para la solicitud RECHAZADO_FRAUDE; los otros tres
+    # completan la "lista negra de 3-5 documentos" que pide el enunciado. Van
+    # entre comillas para que se enlacen como texto y no como numero.
+    documentos-bloqueados:
+      - "1010101010"
+      - "1111111111"
+      - "2020202020"
+      - "3333333333"
+    # Minimo por debajo del cual la solicitud ya no es viable de ninguna forma.
+    # Los umbrales que separan un aprobado de un preaprobado son otra cosa y
+    # viven en las reglas de decision (feature 11).
+    score-minimo: 600
+    # El multiplo mas permisivo de la tabla del enunciado: por encima de ocho
+    # veces los ingresos ninguna decision posterior podria aprobar el credito.
+    multiplo-maximo-de-ingresos: 8
+
 resilience4j:
   retry:
     instances:
