@@ -136,3 +136,23 @@ Content-Type: application/json
   "plazoMeses": 36,
   "ingresosMensuales": 4000000
 }
+
+
+### 7. Consulta de estado — documento con solicitudes radicadas
+# Corre antes las peticiones 1-6: la consulta lista lo que la radicación dejó.
+# Espera 200 · lista con las solicitudes de CC {{documentoPreaprobado}}, de la
+# más reciente a la más antigua; cada elemento con idSolicitud, fechaCreacion,
+# estado, monto, plazo y la tasa sellada al radicar (sin tasa en los rechazos).
+GET {{solicitudes}}/CC/{{documentoPreaprobado}}
+
+
+### 8. Consulta de estado — documento sin solicitudes
+# Espera 200 con la lista vacía [], no 404: preguntar por un documento que
+# nunca ha radicado es un escenario normal de la pantalla de consulta.
+GET {{solicitudes}}/CC/999999999
+
+
+### 9. Consulta de estado — tipo de documento inválido
+# Espera 400 · message "Error en los datos proporcionados" · errors[0] con
+# field=tipoDocumento y location=path: el tipo XX no está en el catálogo CC/CE/PA.
+GET {{solicitudes}}/XX/{{documentoPreaprobado}}

@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "CreditValidation - Motor de decision",
-    "description": "Pruebas de la radicacion de solicitudes del motor de decision (modulo `motordedecision/`, puerto 8080).\n\n## Como usarla\n\n1. Levanta el buro (`mvn -f buro/pom.xml spring-boot:run`) y el motor con su base de datos (`docker compose up -d` dentro de `motordedecision/` y el perfil `dev`).\n2. Importa esta coleccion y el entorno `local.postman_environment.json`.\n3. Selecciona el entorno **CreditValidation - local** y lanza la coleccion con el Collection Runner.\n\nNinguna peticion escribe el host a mano: todas usan `{{baseUrlMotor}}`.\n\n## Que cubre\n\nLos cinco escenarios de la radicacion: aprobado, preaprobado, rechazado, fraude y entrada invalida, mas el buro caido del enunciado. El buro es determinista, asi que cada documento produce siempre el mismo score y las aserciones son estables: 1234567892 -> 727, 1234567890 -> 635, 1234567891 -> 381.\n\n## Aviso sobre la peticion 6\n\nTarda varios segundos **a proposito**: el buro retrasa su respuesta ~10 s y el motor agota su tiempo de espera, reintenta y cae en el fallback. No es un cuelgue.\n\nEquivalente en formato `.http`: `api/motor.http`.",
+    "description": "Pruebas de la radicacion de solicitudes del motor de decision (modulo `motordedecision/`, puerto 8080).\n\n## Como usarla\n\n1. Levanta el buro (`mvn -f buro/pom.xml spring-boot:run`) y el motor con su base de datos (`docker compose up -d` dentro de `motordedecision/` y el perfil `dev`).\n2. Importa esta coleccion y el entorno `local.postman_environment.json`.\n3. Selecciona el entorno **CreditValidation - local** y lanza la coleccion con el Collection Runner.\n\nNinguna peticion escribe el host a mano: todas usan `{{baseUrlMotor}}`.\n\n## Que cubre\n\nLos cinco escenarios de la radicacion: aprobado, preaprobado, rechazado, fraude y entrada invalida, mas el buro caido del enunciado; y despues la consulta de estado de esos mismos documentos, con el documento sin solicitudes y el tipo invalido del contrato de errores. Corrida en orden, la coleccion cuenta el flujo completo: radicar y consultar. El buro es determinista, asi que cada documento produce siempre el mismo score y las aserciones son estables: 1234567892 -> 727, 1234567890 -> 635, 1234567891 -> 381.\n\n## Aviso sobre la peticion 6\n\nTarda varios segundos **a proposito**: el buro retrasa su respuesta ~10 s y el motor agota su tiempo de espera, reintenta y cae en el fallback. No es un cuelgue.\n\nEquivalente en formato `.http`: `api/motor.http`.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -352,6 +352,357 @@
               ]
             },
             "description": "El buro tarda ~10 s; el motor agota el timeout, reintenta con backoff y responde 200 con PENDIENTE_REVISION. Tarda a proposito."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Consulta de estado",
+      "description": "Corridas despues de radicar, consultan el estado de los mismos documentos de las peticiones 1-6: el runner cuenta el flujo completo del enunciado, de la radicacion a la consulta. Cierra con el documento sin solicitudes (200 y lista vacia) y el tipo invalido (400 con location=path).",
+      "item": [
+        {
+          "name": "7. Estado del documento aprobado - CC 1234567892",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const solicitudes = pm.response.json();",
+                  "",
+                  "pm.test(\"Lista con al menos la solicitud radicada en esta corrida\", () => {",
+                  "    pm.expect(solicitudes).to.be.an(\"array\").that.is.not.empty;",
+                  "});",
+                  "",
+                  "pm.test(\"Cada elemento trae el sobre y las cifras\", () => {",
+                  "    solicitudes.forEach(s => {",
+                  "        pm.expect(s.idSolicitud).to.match(/^SOL-\\d{8}-\\d{3}$/);",
+                  "        pm.expect(s).to.include.keys(\"fechaCreacion\", \"estado\", \"montoSolicitado\", \"plazoMeses\");",
+                  "    });",
+                  "});",
+                  "",
+                  "pm.test(\"Ordenada de la mas reciente a la mas antigua\", () => {",
+                  "    const fechas = solicitudes.map(s => s.fechaCreacion);",
+                  "    pm.expect(fechas).to.eql([...fechas].sort().reverse());",
+                  "});",
+                  "",
+                  "pm.test(\"La mas reciente es la de esta corrida: APROBADO\", () => {",
+                  "    pm.expect(solicitudes[0].estado).to.eql(\"APROBADO\");",
+                  "    pm.expect(solicitudes[0].tasaEstimada).to.eql(1.2);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrlMotor}}/api/solicitudes/CC/1234567892",
+              "host": [
+                "{{baseUrlMotor}}"
+              ],
+              "path": [
+                "api",
+                "solicitudes",
+                "CC",
+                "1234567892"
+              ]
+            },
+            "description": "Consulta las solicitudes que la peticion 1 radico: la mas reciente debe estar APROBADO con su tasa sellada."
+          }
+        },
+        {
+          "name": "8. Estado del documento preaprobado - CC 1234567890",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const solicitudes = pm.response.json();",
+                  "",
+                  "pm.test(\"Lista con al menos la solicitud radicada en esta corrida\", () => {",
+                  "    pm.expect(solicitudes).to.be.an(\"array\").that.is.not.empty;",
+                  "});",
+                  "",
+                  "pm.test(\"Cada elemento trae el sobre y las cifras\", () => {",
+                  "    solicitudes.forEach(s => {",
+                  "        pm.expect(s.idSolicitud).to.match(/^SOL-\\d{8}-\\d{3}$/);",
+                  "        pm.expect(s).to.include.keys(\"fechaCreacion\", \"estado\", \"montoSolicitado\", \"plazoMeses\");",
+                  "    });",
+                  "});",
+                  "",
+                  "pm.test(\"Ordenada de la mas reciente a la mas antigua\", () => {",
+                  "    const fechas = solicitudes.map(s => s.fechaCreacion);",
+                  "    pm.expect(fechas).to.eql([...fechas].sort().reverse());",
+                  "});",
+                  "",
+                  "pm.test(\"La mas reciente es la de esta corrida: PREAPROBADO\", () => {",
+                  "    pm.expect(solicitudes[0].estado).to.eql(\"PREAPROBADO\");",
+                  "    pm.expect(solicitudes[0].tasaEstimada).to.eql(1.8);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrlMotor}}/api/solicitudes/CC/1234567890",
+              "host": [
+                "{{baseUrlMotor}}"
+              ],
+              "path": [
+                "api",
+                "solicitudes",
+                "CC",
+                "1234567890"
+              ]
+            },
+            "description": "Consulta el documento del ejemplo del enunciado, radicado por la peticion 2. En el perfil dev tambien lista las filas sembradas por db/sql/02-data.sql."
+          }
+        },
+        {
+          "name": "9. Estado del documento rechazado - CC 1234567891",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const solicitudes = pm.response.json();",
+                  "",
+                  "pm.test(\"Lista con al menos la solicitud radicada en esta corrida\", () => {",
+                  "    pm.expect(solicitudes).to.be.an(\"array\").that.is.not.empty;",
+                  "});",
+                  "",
+                  "pm.test(\"Cada elemento trae el sobre y las cifras\", () => {",
+                  "    solicitudes.forEach(s => {",
+                  "        pm.expect(s.idSolicitud).to.match(/^SOL-\\d{8}-\\d{3}$/);",
+                  "        pm.expect(s).to.include.keys(\"fechaCreacion\", \"estado\", \"montoSolicitado\", \"plazoMeses\");",
+                  "    });",
+                  "});",
+                  "",
+                  "pm.test(\"Ordenada de la mas reciente a la mas antigua\", () => {",
+                  "    const fechas = solicitudes.map(s => s.fechaCreacion);",
+                  "    pm.expect(fechas).to.eql([...fechas].sort().reverse());",
+                  "});",
+                  "",
+                  "pm.test(\"La mas reciente es la de esta corrida: RECHAZADO\", () => {",
+                  "    pm.expect(solicitudes[0].estado).to.eql(\"RECHAZADO\");",
+                  "    pm.expect(solicitudes[0]).to.not.have.property(\"tasaEstimada\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrlMotor}}/api/solicitudes/CC/1234567891",
+              "host": [
+                "{{baseUrlMotor}}"
+              ],
+              "path": [
+                "api",
+                "solicitudes",
+                "CC",
+                "1234567891"
+              ]
+            },
+            "description": "Consulta el documento que la peticion 3 dejo RECHAZADO: sin oferta no viaja tasaEstimada."
+          }
+        },
+        {
+          "name": "10. Estado del documento bloqueado - CC 1010101010",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const solicitudes = pm.response.json();",
+                  "",
+                  "pm.test(\"Lista con al menos la solicitud radicada en esta corrida\", () => {",
+                  "    pm.expect(solicitudes).to.be.an(\"array\").that.is.not.empty;",
+                  "});",
+                  "",
+                  "pm.test(\"Cada elemento trae el sobre y las cifras\", () => {",
+                  "    solicitudes.forEach(s => {",
+                  "        pm.expect(s.idSolicitud).to.match(/^SOL-\\d{8}-\\d{3}$/);",
+                  "        pm.expect(s).to.include.keys(\"fechaCreacion\", \"estado\", \"montoSolicitado\", \"plazoMeses\");",
+                  "    });",
+                  "});",
+                  "",
+                  "pm.test(\"Ordenada de la mas reciente a la mas antigua\", () => {",
+                  "    const fechas = solicitudes.map(s => s.fechaCreacion);",
+                  "    pm.expect(fechas).to.eql([...fechas].sort().reverse());",
+                  "});",
+                  "",
+                  "pm.test(\"La mas reciente es la de esta corrida: RECHAZADO_FRAUDE\", () => {",
+                  "    pm.expect(solicitudes[0].estado).to.eql(\"RECHAZADO_FRAUDE\");",
+                  "    pm.expect(solicitudes[0]).to.not.have.property(\"tasaEstimada\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrlMotor}}/api/solicitudes/CC/1010101010",
+              "host": [
+                "{{baseUrlMotor}}"
+              ],
+              "path": [
+                "api",
+                "solicitudes",
+                "CC",
+                "1010101010"
+              ]
+            },
+            "description": "Consulta el documento que la peticion 4 dejo RECHAZADO_FRAUDE."
+          }
+        },
+        {
+          "name": "11. Estado del documento del buro caido - CC 0000000000",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const solicitudes = pm.response.json();",
+                  "",
+                  "pm.test(\"Lista con al menos la solicitud radicada en esta corrida\", () => {",
+                  "    pm.expect(solicitudes).to.be.an(\"array\").that.is.not.empty;",
+                  "});",
+                  "",
+                  "pm.test(\"Cada elemento trae el sobre y las cifras\", () => {",
+                  "    solicitudes.forEach(s => {",
+                  "        pm.expect(s.idSolicitud).to.match(/^SOL-\\d{8}-\\d{3}$/);",
+                  "        pm.expect(s).to.include.keys(\"fechaCreacion\", \"estado\", \"montoSolicitado\", \"plazoMeses\");",
+                  "    });",
+                  "});",
+                  "",
+                  "pm.test(\"Ordenada de la mas reciente a la mas antigua\", () => {",
+                  "    const fechas = solicitudes.map(s => s.fechaCreacion);",
+                  "    pm.expect(fechas).to.eql([...fechas].sort().reverse());",
+                  "});",
+                  "",
+                  "pm.test(\"La mas reciente es la de esta corrida: PENDIENTE_REVISION\", () => {",
+                  "    pm.expect(solicitudes[0].estado).to.eql(\"PENDIENTE_REVISION\");",
+                  "    pm.expect(solicitudes[0]).to.not.have.property(\"tasaEstimada\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrlMotor}}/api/solicitudes/CC/0000000000",
+              "host": [
+                "{{baseUrlMotor}}"
+              ],
+              "path": [
+                "api",
+                "solicitudes",
+                "CC",
+                "0000000000"
+              ]
+            },
+            "description": "Consulta el documento que la peticion 6 dejo PENDIENTE_REVISION tras el fallback."
+          }
+        },
+        {
+          "name": "12. Documento sin solicitudes - lista vacia con 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200, no 404\", () => pm.response.to.have.status(200));",
+                  "",
+                  "pm.test(\"La lista llega vacia\", () => {",
+                  "    pm.expect(pm.response.json()).to.eql([]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrlMotor}}/api/solicitudes/CC/999999999",
+              "host": [
+                "{{baseUrlMotor}}"
+              ],
+              "path": [
+                "api",
+                "solicitudes",
+                "CC",
+                "999999999"
+              ]
+            },
+            "description": "Un documento que nunca ha radicado no es un error: 200 con [], nunca 404."
+          }
+        },
+        {
+          "name": "13. Tipo de documento invalido - 400 en la ruta",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 400\", () => pm.response.to.have.status(400));",
+                  "",
+                  "const cuerpo = pm.response.json();",
+                  "",
+                  "pm.test(\"El error senala el tipo de documento y viene de la ruta\", () => {",
+                  "    pm.expect(cuerpo.message).to.eql(\"Error en los datos proporcionados\");",
+                  "    pm.expect(cuerpo.errors).to.have.lengthOf(1);",
+                  "    pm.expect(cuerpo.errors[0].field).to.eql(\"tipoDocumento\");",
+                  "    pm.expect(cuerpo.errors[0].location).to.eql(\"path\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrlMotor}}/api/solicitudes/XX/1234567890",
+              "host": [
+                "{{baseUrlMotor}}"
+              ],
+              "path": [
+                "api",
+                "solicitudes",
+                "XX",
+                "1234567890"
+              ]
+            },
+            "description": "XX no esta en el catalogo CC/CE/PA: la conversion de la variable de ruta falla y el contrato de errores responde location=path."
           }
         }
       ]
