@@ -7,7 +7,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import java.time.Clock;
 import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -19,8 +22,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * simular el servicio caido retrasa la respuesta, y ningun otro lo hace.
  *
  * La pausa se sustituye por un doble que solo anota lo que se le pidio: asi se
- * comprueba que se solicita exactamente la duracion configurada sin esperarla,
- * y el test no depende del reloj de pared ({@code docs/verification.md} §3).
+ * comprueba que se solicita exactamente la duracion configurada sin esperarla.
+ *
+ * El generador se construye con un {@link Clock#fixed} (D-017). Sin el, comparar
+ * el informe completo contra una segunda llamada al generador seria una carrera:
+ * {@code fechaConsulta} solo coincidiria si ambas llamadas cayeran en el mismo
+ * tick del reloj de la maquina. Con el reloj fijo ningun caso de esta clase
+ * depende del reloj de pared ({@code docs/verification.md} §3).
  */
 class SimuladorConsultaBuroTest {
 
@@ -29,7 +37,10 @@ class SimuladorConsultaBuroTest {
     private static final String DOCUMENTO_PAR = "1234567890";
     private static final String DOCUMENTO_IMPAR = "1234567891";
 
-    private final GeneradorInformeCrediticio generador = new GeneradorInformeCrediticio();
+    private static final LocalDateTime INSTANTE_FIJO = LocalDateTime.of(2026, 8, 24, 10, 30, 0);
+    private static final Clock RELOJ_FIJO = Clock.fixed(INSTANTE_FIJO.toInstant(ZoneOffset.UTC), ZoneOffset.UTC);
+
+    private final GeneradorInformeCrediticio generador = new GeneradorInformeCrediticio(RELOJ_FIJO);
     private final PausaAnotada pausa = new PausaAnotada();
     private final SimuladorConsultaBuro simulador =
             new SimuladorConsultaBuro(generador, pausa, DOCUMENTO_SERVICIO_CAIDO, RETARDO_CONFIGURADO);
@@ -42,6 +53,11 @@ class SimuladorConsultaBuroTest {
         assertThat(pausa.duracionesSolicitadas).containsExactly(RETARDO_CONFIGURADO);
     }
 
+    /**
+     * Compara el informe completo, campo por campo, incluida {@code fechaConsulta}.
+     * Es determinista porque el generador comparte el reloj fijo con la segunda
+     * llamada de la asercion.
+     */
     @Test
     @DisplayName("Tras el retardo, el documento del servicio caido devuelve igualmente su informe")
     void consultarInforme_conElDocumentoDelServicioCaido_devuelveElInformeDelGenerador() {
