@@ -43,6 +43,26 @@ reglas:
     # El multiplo mas permisivo de la tabla del enunciado: por encima de ocho
     # veces los ingresos ninguna decision posterior podria aprobar el credito.
     multiplo-maximo-de-ingresos: 8
+  decision:
+    # Los numeros de la tabla de decision del enunciado (lineas 78-84). El orden
+    # de las reglas no esta aqui: lo fija la lista de
+    # ConfiguracionReglasDeDecision, porque es codigo y no un dato de negocio
+    # (D-044).
+    #
+    # Nombre de la validacion cuyo rechazo es fraude y no un rechazo corriente.
+    # Tiene que coincidir con el que publica ValidacionIdentidad, que es el
+    # mismo que viaja a la respuesta.
+    validacion-de-identidad: "Identidad"
+    aprobado:
+      score-minimo: 700
+      multiplo-maximo-de-ingresos: 8
+    preaprobado:
+      # Ojo: 600 aparece dos veces en el enunciado y no es el mismo numero. El
+      # de arriba es el corte de la cadena, por debajo del cual la solicitud se
+      # rechaza; este es el piso de la fila PREAPROBADO. Coinciden hoy y podrian
+      # dejar de coincidir manana.
+      score-minimo: 600
+      multiplo-maximo-de-ingresos: 5
 
 resilience4j:
   retry:
