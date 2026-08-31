@@ -156,3 +156,62 @@ GET {{solicitudes}}/CC/999999999
 # Espera 400 · message "Error en los datos proporcionados" · errors[0] con
 # field=tipoDocumento y location=path: el tipo XX no está en el catálogo CC/CE/PA.
 GET {{solicitudes}}/XX/{{documentoPreaprobado}}
+
+
+### 10. Monto por encima del máximo — 50.000.001
+# El caso 5 mezcla nueve campos malos; este aísla el borde superior del monto
+# para leer su ErrorResponse limpio. Espera 400 · un solo elemento en errors[]
+# con field=montoSolicitado, location=body y el mensaje del tope de 50.000.000.
+POST {{solicitudes}}
+Content-Type: application/json
+
+{
+  "tipoDocumento": "CC",
+  "numeroDocumento": "{{documentoAprobado}}",
+  "nombres": "Ana",
+  "apellidos": "Ruiz",
+  "correo": "ana.ruiz@example.com",
+  "celular": "3001234567",
+  "montoSolicitado": 50000001,
+  "plazoMeses": 24,
+  "ingresosMensuales": 10000000
+}
+
+
+### 11. Monto por debajo del mínimo — 999.999
+# El otro borde del rango. Espera 400 · un solo elemento en errors[] con
+# field=montoSolicitado, location=body y el mensaje del piso de 1.000.000.
+POST {{solicitudes}}
+Content-Type: application/json
+
+{
+  "tipoDocumento": "CC",
+  "numeroDocumento": "{{documentoAprobado}}",
+  "nombres": "Ana",
+  "apellidos": "Ruiz",
+  "correo": "ana.ruiz@example.com",
+  "celular": "3001234567",
+  "montoSolicitado": 999999,
+  "plazoMeses": 24,
+  "ingresosMensuales": 10000000
+}
+
+
+### 12. Plazo fuera del conjunto permitido — 18 meses
+# El enunciado fija exactamente 12, 24, 36 y 48. Espera 400 · un solo elemento
+# en errors[] con field=plazoMeses, location=body y el mensaje del validador
+# propio PlazoPermitido, no el de un rango numérico.
+POST {{solicitudes}}
+Content-Type: application/json
+
+{
+  "tipoDocumento": "CC",
+  "numeroDocumento": "{{documentoAprobado}}",
+  "nombres": "Ana",
+  "apellidos": "Ruiz",
+  "correo": "ana.ruiz@example.com",
+  "celular": "3001234567",
+  "montoSolicitado": 15000000,
+  "plazoMeses": 18,
+  "ingresosMensuales": 10000000
+}

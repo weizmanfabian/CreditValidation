@@ -353,6 +353,183 @@
             },
             "description": "El buro tarda ~10 s; el motor agota el timeout, reintenta con backoff y responde 200 con PENDIENTE_REVISION. Tarda a proposito."
           }
+        },
+        {
+          "name": "14. Monto por encima del maximo - 50.000.001",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 400\", () => pm.response.to.have.status(400));",
+                  "",
+                  "const cuerpo = pm.response.json();",
+                  "",
+                  "pm.test(\"Mensaje del contrato de errores\", () => {",
+                  "    pm.expect(cuerpo.message).to.eql(\"Error en los datos proporcionados\");",
+                  "});",
+                  "",
+                  "pm.test(\"Los NUEVE campos rechazados, no solo el primero\", () => {",
+                  "    const campos = cuerpo.errors.map(e => e.field).sort();",
+                  "    pm.expect(campos).to.eql([\"apellidos\", \"celular\", \"correo\", \"ingresosMensuales\",",
+                  "        \"montoSolicitado\", \"nombres\", \"numeroDocumento\", \"plazoMeses\", \"tipoDocumento\"]);",
+                  "});",
+                  "",
+                  "pm.test(\"Todos los errores vienen del body\", () => {",
+                  "    cuerpo.errors.forEach(e => pm.expect(e.location).to.eql(\"body\"));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipoDocumento\": \"CC\",\n  \"numeroDocumento\": \"1234567892\",\n  \"nombres\": \"Ana\",\n  \"apellidos\": \"Ruiz\",\n  \"correo\": \"ana.ruiz@example.com\",\n  \"celular\": \"3001234567\",\n  \"montoSolicitado\": 50000001,\n  \"plazoMeses\": 24,\n  \"ingresosMensuales\": 10000000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrlMotor}}/api/solicitudes",
+              "host": [
+                "{{baseUrlMotor}}"
+              ],
+              "path": [
+                "api",
+                "solicitudes"
+              ]
+            },
+            "description": "Aisla el borde superior del monto. Espera 400 con un solo elemento en errors[]: field=montoSolicitado, location=body."
+          }
+        },
+        {
+          "name": "15. Monto por debajo del minimo - 999.999",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 400\", () => pm.response.to.have.status(400));",
+                  "",
+                  "const cuerpo = pm.response.json();",
+                  "",
+                  "pm.test(\"Mensaje del contrato de errores\", () => {",
+                  "    pm.expect(cuerpo.message).to.eql(\"Error en los datos proporcionados\");",
+                  "});",
+                  "",
+                  "pm.test(\"Los NUEVE campos rechazados, no solo el primero\", () => {",
+                  "    const campos = cuerpo.errors.map(e => e.field).sort();",
+                  "    pm.expect(campos).to.eql([\"apellidos\", \"celular\", \"correo\", \"ingresosMensuales\",",
+                  "        \"montoSolicitado\", \"nombres\", \"numeroDocumento\", \"plazoMeses\", \"tipoDocumento\"]);",
+                  "});",
+                  "",
+                  "pm.test(\"Todos los errores vienen del body\", () => {",
+                  "    cuerpo.errors.forEach(e => pm.expect(e.location).to.eql(\"body\"));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipoDocumento\": \"CC\",\n  \"numeroDocumento\": \"1234567892\",\n  \"nombres\": \"Ana\",\n  \"apellidos\": \"Ruiz\",\n  \"correo\": \"ana.ruiz@example.com\",\n  \"celular\": \"3001234567\",\n  \"montoSolicitado\": 999999,\n  \"plazoMeses\": 24,\n  \"ingresosMensuales\": 10000000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrlMotor}}/api/solicitudes",
+              "host": [
+                "{{baseUrlMotor}}"
+              ],
+              "path": [
+                "api",
+                "solicitudes"
+              ]
+            },
+            "description": "El otro borde del rango. Espera 400 con un solo elemento en errors[]: field=montoSolicitado, location=body."
+          }
+        },
+        {
+          "name": "16. Plazo fuera del conjunto permitido - 18 meses",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 400\", () => pm.response.to.have.status(400));",
+                  "",
+                  "const cuerpo = pm.response.json();",
+                  "",
+                  "pm.test(\"Mensaje del contrato de errores\", () => {",
+                  "    pm.expect(cuerpo.message).to.eql(\"Error en los datos proporcionados\");",
+                  "});",
+                  "",
+                  "pm.test(\"Los NUEVE campos rechazados, no solo el primero\", () => {",
+                  "    const campos = cuerpo.errors.map(e => e.field).sort();",
+                  "    pm.expect(campos).to.eql([\"apellidos\", \"celular\", \"correo\", \"ingresosMensuales\",",
+                  "        \"montoSolicitado\", \"nombres\", \"numeroDocumento\", \"plazoMeses\", \"tipoDocumento\"]);",
+                  "});",
+                  "",
+                  "pm.test(\"Todos los errores vienen del body\", () => {",
+                  "    cuerpo.errors.forEach(e => pm.expect(e.location).to.eql(\"body\"));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipoDocumento\": \"CC\",\n  \"numeroDocumento\": \"1234567892\",\n  \"nombres\": \"Ana\",\n  \"apellidos\": \"Ruiz\",\n  \"correo\": \"ana.ruiz@example.com\",\n  \"celular\": \"3001234567\",\n  \"montoSolicitado\": 15000000,\n  \"plazoMeses\": 18,\n  \"ingresosMensuales\": 10000000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrlMotor}}/api/solicitudes",
+              "host": [
+                "{{baseUrlMotor}}"
+              ],
+              "path": [
+                "api",
+                "solicitudes"
+              ]
+            },
+            "description": "El enunciado fija 12, 24, 36 y 48. Espera 400 con un solo elemento en errors[]: field=plazoMeses, location=body."
+          }
         }
       ]
     },
