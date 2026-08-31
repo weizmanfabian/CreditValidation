@@ -1,0 +1,101 @@
+<section class="tarjeta">
+  <h2>Solicitud de crédito de consumo</h2>
+
+  <form [formGroup]="formulario" (ngSubmit)="enviar()" novalidate>
+
+    <div class="campo">
+      <label for="tipoDocumento">Tipo de documento</label>
+      <select id="tipoDocumento" formControlName="tipoDocumento">
+        <option [ngValue]="null" disabled>Seleccione una opción</option>
+        @for (tipo of tiposDocumento; track tipo) {
+          <option [ngValue]="tipo">{{ tipo }}</option>
+        }
+      </select>
+      @if (obtenerErrorVisible('tipoDocumento'); as mensaje) {
+        <p class="error-campo">{{ mensaje }}</p>
+      }
+    </div>
+
+    <div class="campo">
+      <label for="numeroDocumento">Número de documento</label>
+      <input id="numeroDocumento" type="text" inputmode="numeric" formControlName="numeroDocumento" />
+      @if (obtenerErrorVisible('numeroDocumento'); as mensaje) {
+        <p class="error-campo">{{ mensaje }}</p>
+      }
+    </div>
+
+    <div class="campo">
+      <label for="nombres">Nombres</label>
+      <input id="nombres" type="text" formControlName="nombres" />
+      @if (obtenerErrorVisible('nombres'); as mensaje) {
+        <p class="error-campo">{{ mensaje }}</p>
+      }
+    </div>
+
+    <div class="campo">
+      <label for="apellidos">Apellidos</label>
+      <input id="apellidos" type="text" formControlName="apellidos" />
+      @if (obtenerErrorVisible('apellidos'); as mensaje) {
+        <p class="error-campo">{{ mensaje }}</p>
+      }
+    </div>
+
+    <div class="campo">
+      <label for="correo">Correo electrónico</label>
+      <input id="correo" type="email" formControlName="correo" />
+      @if (obtenerErrorVisible('correo'); as mensaje) {
+        <p class="error-campo">{{ mensaje }}</p>
+      }
+    </div>
+
+    <div class="campo">
+      <label for="celular">Teléfono celular</label>
+      <input id="celular" type="tel" inputmode="numeric" formControlName="celular" />
+      @if (obtenerErrorVisible('celular'); as mensaje) {
+        <p class="error-campo">{{ mensaje }}</p>
+      }
+    </div>
+
+    <div class="campo">
+      <label for="montoSolicitado">Monto solicitado (COP)</label>
+      <input id="montoSolicitado" type="number" formControlName="montoSolicitado" />
+      @if (obtenerErrorVisible('montoSolicitado'); as mensaje) {
+        <p class="error-campo">{{ mensaje }}</p>
+      }
+    </div>
+
+    <div class="campo">
+      <label for="plazoMeses">Plazo en meses</label>
+      <select id="plazoMeses" formControlName="plazoMeses">
+        <option [ngValue]="null" disabled>Seleccione una opción</option>
+        @for (plazo of plazosPermitidos; track plazo) {
+          <option [ngValue]="plazo">{{ plazo }}</option>
+        }
+      </select>
+      @if (obtenerErrorVisible('plazoMeses'); as mensaje) {
+        <p class="error-campo">{{ mensaje }}</p>
+      }
+    </div>
+
+    <div class="campo">
+      <label for="ingresosMensuales">Ingresos mensuales (COP)</label>
+      <input id="ingresosMensuales" type="number" formControlName="ingresosMensuales" />
+      @if (obtenerErrorVisible('ingresosMensuales'); as mensaje) {
+        <p class="error-campo">{{ mensaje }}</p>
+      }
+    </div>
+
+    @if (errorEnvio()) {
+      <p class="error-envio" role="alert">No fue posible radicar la solicitud. Intenta de nuevo.</p>
+    }
+
+    <button type="submit" [disabled]="formulario.invalid || enviando()">
+      @if (enviando()) {
+        Enviando…
+      } @else {
+        Enviar solicitud
+      }
+    </button>
+
+  </form>
+</section>

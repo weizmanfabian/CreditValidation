@@ -1,0 +1,10 @@
+.cabecera {
+  padding: 1rem 2rem;
+  background: #1a4fa0;
+  color: #ffffff;
+}
+
+.cabecera h1 {
+  margin: 0;
+  font-size: 1.5rem;
+}
