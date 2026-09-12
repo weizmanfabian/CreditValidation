@@ -43,6 +43,17 @@ module.exports = function (config) {
       dir: join(__dirname, 'coverage', 'frontend'),
       subdir: '.',
       reporters: [{ type: 'html' }, { type: 'text-summary' }],
+      // El listón de docs/conventions.md §5. Solo se comprueba cuando la
+      // ejecucion pide cobertura (`--code-coverage`), que es la linea que
+      // corre el arnes: por debajo del 80 % la suite termina en rojo en vez
+      // de bajar en silencio.
+      check: {
+        global: {
+          statements: 80,
+          branches: 80,
+          lines: 80,
+        },
+      },
     },
     reporters: ['progress', 'kjhtml'],
     browsers: ['ChromeHeadless'],

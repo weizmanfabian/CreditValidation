@@ -3,6 +3,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Subject, throwError } from 'rxjs';
 
 import { FormularioSolicitud, convertirASolicitudCredito } from './formulario-solicitud';
+import { RespuestaError } from '../../models/error-respuesta';
 import { SolicitudCreditoResponse } from '../../models/solicitud-credito';
 import { SolicitudCreditoService } from '../../services/solicitud-credito.service';
 import { crearRespuestaAprobada, crearSolicitudValida } from '../../testing/fixtures-solicitud';
@@ -71,6 +72,18 @@ describe('FormularioSolicitud', () => {
   function textoErroresVisibles(): string {
     const errores = (fixture.nativeElement as HTMLElement).querySelectorAll('.error-campo');
     return Array.from(errores).map((error) => error.textContent?.trim() ?? '').join(' | ');
+  }
+
+  function obtenerErrorDelCampo(id: string): string {
+    const campo = obtenerElemento<HTMLElement>(`#${id}`).closest('.campo');
+    return campo?.querySelector('.error-campo')?.textContent?.trim() ?? '';
+  }
+
+  function radicarConRechazoDelMotor(cuerpo: RespuestaError): void {
+    servicioSpy.radicar.and.returnValue(throwError(
+        () => new HttpErrorResponse({ status: 400, statusText: 'Bad Request', error: cuerpo })));
+    llenarFormularioValido();
+    enviarFormulario();
   }
 
   describe('formulario inválido', () => {
@@ -201,6 +214,39 @@ describe('FormularioSolicitud', () => {
       const errorEnvio = obtenerElemento<HTMLParagraphElement>('.error-envio');
       expect(errorEnvio.textContent).toContain('No fue posible radicar la solicitud');
       expect(obtenerBotonEnviar().disabled).toBeFalse();
+    });
+  });
+
+  describe('validación rechazada por el motor', () => {
+    const MENSAJE_DEL_SOBRE = 'Error en los datos proporcionados';
+
+    it('un 400 con errors[] pinta el mensaje del motor bajo el campo que nombra', () => {
+      radicarConRechazoDelMotor({
+        message: MENSAJE_DEL_SOBRE,
+        errors: [{ field: 'correo', message: 'Correo ya registrado en otra solicitud', location: 'body' }],
+      });
+
+      expect(obtenerErrorDelCampo('correo')).toBe('Correo ya registrado en otra solicitud');
+      expect(obtenerElemento<HTMLElement>('.errores-del-motor').textContent).toContain(MENSAJE_DEL_SOBRE);
+    });
+
+    it('un 400 con un field que el formulario no expone cae en .errores-generales', () => {
+      radicarConRechazoDelMotor({
+        message: MENSAJE_DEL_SOBRE,
+        errors: [{ field: 'radicar.solicitud', message: 'La solicitud es requerida', location: 'path' }],
+      });
+
+      expect(obtenerElemento<HTMLUListElement>('.errores-generales').textContent)
+          .toContain('La solicitud es requerida');
+      expect(textoErroresVisibles()).withContext('ningún mensaje bajo un campo').toBe('');
+    });
+
+    it('un 400 sin errors[] degrada al aviso genérico de envío', () => {
+      radicarConRechazoDelMotor({ message: MENSAJE_DEL_SOBRE });
+
+      expect(obtenerElemento<HTMLParagraphElement>('.error-envio').textContent)
+          .toContain('No fue posible radicar la solicitud');
+      expect((fixture.nativeElement as HTMLElement).querySelector('.errores-del-motor')).toBeNull();
     });
   });
 });
