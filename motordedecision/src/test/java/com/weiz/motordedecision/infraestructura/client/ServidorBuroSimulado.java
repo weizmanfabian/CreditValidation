@@ -2,6 +2,9 @@ package com.weiz.motordedecision.infraestructura.client;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -23,15 +26,33 @@ import java.util.concurrent.atomic.AtomicInteger;
  * demostrar. Usa {@code com.sun.net.httpserver}, que viene en el JDK: no anade
  * ninguna dependencia al modulo.
  *
+ * Ademas de responder, guarda el contrato HTTP hacia el modulo buro: solo
+ * atiende el POST a {@code /api/buro/consulta} con {@code tipoDocumento} y
+ * {@code numeroDocumento} en el cuerpo, y responde 404 a cualquier otra cosa
+ * (docs/decisions.md D-069). Sin esa guarda, cambiar la ruta en
+ * {@link BuroClientHttp} dejaba la suite entera en verde.
+ *
  * No es concurrente por diseno: cada test configura una respuesta y llama.
  */
 final class ServidorBuroSimulado {
+
+    /** Verbo, ruta y campos que publica ConsultaBuroController en el modulo buro. */
+    static final String METODO_DE_CONSULTA = "POST";
+    static final String RUTA_DE_CONSULTA = "/api/buro/consulta";
+    static final String CAMPO_TIPO_DOCUMENTO = "tipoDocumento";
+    static final String CAMPO_NUMERO_DOCUMENTO = "numeroDocumento";
+
+    static final int CODIGO_RECURSO_NO_ENCONTRADO = 404;
 
     private static final int PUERTO_LIBRE = 0;
     private static final int COLA_POR_OMISION = 0;
     private static final int HILOS_DE_ATENCION = 4;
     private static final String CABECERA_TIPO_CONTENIDO = "Content-Type";
     private static final String TIPO_CONTENIDO_JSON = "application/json";
+    private static final String CUERPO_RECURSO_NO_ENCONTRADO =
+            "{\"message\":\"La peticion no corresponde al contrato del buro\"}";
+
+    private static final ObjectMapper LECTOR_DE_JSON = new ObjectMapper();
 
     private final HttpServer servidor;
     private final AtomicInteger peticionesRecibidas = new AtomicInteger();
@@ -39,9 +60,14 @@ final class ServidorBuroSimulado {
     private volatile int codigoDeRespuesta = 200;
     private volatile String cuerpoDeRespuesta = "{}";
     private volatile Duration retardoDeRespuesta = Duration.ZERO;
+    private volatile PeticionRecibida ultimaPeticion;
 
     private ServidorBuroSimulado(HttpServer servidor) {
         this.servidor = servidor;
+    }
+
+    /** Lo que llego por el cable, para que el test afirme sobre ello. */
+    record PeticionRecibida(String metodo, String ruta, String cuerpo) {
     }
 
     static ServidorBuroSimulado iniciar() {
@@ -90,17 +116,67 @@ final class ServidorBuroSimulado {
         peticionesRecibidas.set(0);
     }
 
+    /** Devuelve la ultima peticion atendida, cumpla o no el contrato; nula si no hubo ninguna. */
+    PeticionRecibida obtenerUltimaPeticion() {
+        return ultimaPeticion;
+    }
+
     void detener() {
         servidor.stop(0);
     }
 
     private void atenderPeticion(HttpExchange intercambio) throws IOException {
         peticionesRecibidas.incrementAndGet();
-        esperarElRetardoConfigurado();
 
-        byte[] cuerpo = cuerpoDeRespuesta.getBytes(StandardCharsets.UTF_8);
+        PeticionRecibida peticion = leerLaPeticion(intercambio);
+        ultimaPeticion = peticion;
+
+        if (!cumpleElContratoDeConsulta(peticion)) {
+            responder(intercambio, CODIGO_RECURSO_NO_ENCONTRADO, CUERPO_RECURSO_NO_ENCONTRADO);
+            return;
+        }
+
+        esperarElRetardoConfigurado();
+        responder(intercambio, codigoDeRespuesta, cuerpoDeRespuesta);
+    }
+
+    private static PeticionRecibida leerLaPeticion(HttpExchange intercambio) throws IOException {
+        String cuerpo = new String(intercambio.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+        return new PeticionRecibida(
+                intercambio.getRequestMethod(), intercambio.getRequestURI().getPath(), cuerpo);
+    }
+
+    /**
+     * El contrato que el modulo buro publica en ConsultaBuroController: verbo,
+     * ruta y los dos campos del cuerpo. Lo que no lo cumpla no es una consulta
+     * al buro, y un buro de verdad tampoco la atenderia.
+     */
+    private static boolean cumpleElContratoDeConsulta(PeticionRecibida peticion) {
+        return METODO_DE_CONSULTA.equals(peticion.metodo())
+                && RUTA_DE_CONSULTA.equals(peticion.ruta())
+                && tieneLosCamposDelDocumento(peticion.cuerpo());
+    }
+
+    private static boolean tieneLosCamposDelDocumento(String cuerpo) {
+        try {
+            JsonNode raiz = LECTOR_DE_JSON.readTree(cuerpo);
+            return tieneTextoNoVacio(raiz, CAMPO_TIPO_DOCUMENTO)
+                    && tieneTextoNoVacio(raiz, CAMPO_NUMERO_DOCUMENTO);
+
+        } catch (JacksonException cuerpoIlegible) {
+            return false;
+        }
+    }
+
+    private static boolean tieneTextoNoVacio(JsonNode raiz, String campo) {
+        JsonNode valor = raiz.get(campo);
+        return valor != null && valor.isString() && !valor.asString().isBlank();
+    }
+
+    private void responder(HttpExchange intercambio, int codigo, String cuerpoEnTexto) throws IOException {
+        byte[] cuerpo = cuerpoEnTexto.getBytes(StandardCharsets.UTF_8);
         intercambio.getResponseHeaders().add(CABECERA_TIPO_CONTENIDO, TIPO_CONTENIDO_JSON);
-        intercambio.sendResponseHeaders(codigoDeRespuesta, cuerpo.length);
+        intercambio.sendResponseHeaders(codigo, cuerpo.length);
 
         try (OutputStream salida = intercambio.getResponseBody()) {
             salida.write(cuerpo);
